@@ -1,0 +1,25 @@
+services:
+  pg:
+    image: postgres:18-alpine
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d torb"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+    volumes:
+      - torb:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: torb
+    ports:
+      - 127.0.0.1:5432:5432
+
+  redis:
+    image: redis:8.4.0-alpine
+    ports:
+      - 127.0.0.1:6379:6379
+
+volumes:
+  torb:
