@@ -1,0 +1,36 @@
+# Torb Documentation
+
+Torb is the short form for TaskOrbit. It is an application for managing tasks in a project between contributors. The app is built with the intention to encourage contribution to projects.
+
+This documentation explains the backend of the application.
+
+## Folder Structure
+
+The backend follows a very simple idea of folder structure. Any feature that is related to the core idea of the application is written inside the `core` folder. All other features that are simple add-ons to the existing core concept are kept as a seperate folder.
+
+`core` folder has the following modules
+
+- assignees
+- comments
+- members
+- projects
+- requests
+- tasks
+- users
+
+They all are core part of the application. The application has users who create projects. A project has multiple tasks. The project also has members in it. Non-members can request to join the project and the project owner will approve/reject it. A task has assignees who are responsible to work on the task. A task also has comments where users can suggest and talk about solutions.
+
+The `core` folder also implements the `Avatar` type which is used to represent any user data. For example, a project owner is represented as `Avatar`. This folder also defines the constants used inside the core modules. It defines the errors and `txManager`. `txManager` can handle transactions inside services. It also implements some utilities for checking if the user is owner, member or assignee.
+
+Here are the other folders and their role
+
+- `auth`: implement methods manual and openid based authentication.
+- `middlewares`: implements the middlewares for authorization and utilites needed.
+- `models`: defines the gorm models of all the core and other persistent objects.
+- `notifications`: implements the service for notifying users of the project activies.
+- `testdata`: migration for testing.
+- `testhelpers`: helper functions to create containers and fixtures for each module testing.
+
+## Authentication & Authorization
+
+To be continued...
