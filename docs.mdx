@@ -78,3 +78,11 @@ The user can also reset password in case he forgets his password. To reset the p
 > The reset password token is valid for 24 hours. The reset link should be used before that time period.
 
 When user logout from the platform, his refresh token is revoked. The refresh token is saved in the fast memory access (redis) and when user logout, the token is revoked. During token refresh, the previous refresh token is revoked.
+
+### Google authentication
+
+Google based authentication starts from redirecting the user to the URL. The URL is the google login page if user is not logged in to Google otherwise the user will see a consent page where he needs to give consent to the scopes asked by the backend. The scopes include - openid, email and profile.
+
+The URL includes state and SHA256 challenge related data. When the user gets redirected to the callback after giving consent to the platform, google redirects to the callback API. In the callback API, the backend verifies the request. Then, it checks the account exists or not, then gives the user ID and generate a token.
+
+The user ID and token will be used to generate the access token and refresh token needed to login to the platform. Here, the access and refresh token act in similar way to the manual method.
