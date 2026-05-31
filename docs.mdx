@@ -43,6 +43,8 @@ The user can register to the platform with the manual authentication method. Use
 
 After user registers to the platform, he needs to verify the email address. An email will be sent to the email address with a verification link. User will click on the link and verify the email address.
 
+If the user does not receive the verification email in his email address for any reason, he may need to resend the email again. This may happen due to network issue or the email service provider problem given that the email address is valid.
+
 User will use the email address and password to login to the platform if he has created a manual method based account.
 
 After the login, the user gets access token and refresh token. The access token expires in 15 minutes. The refresh token is valid for 1 week. Refresh token is used to get new access token when the access token expires. When refresh token is used, it rotates the refresh token as well to prevent attacks.
@@ -70,3 +72,9 @@ The HTTP response contains the following:
     },
 }
 ```
+
+The user can also reset password in case he forgets his password. To reset the password, user needs to mention the email address where the reset password token link will be sent. Then, the user will click on that link and he will input a new password. The backend will take the new password and the token to reset the password.
+
+> The reset password token is valid for 24 hours. The reset link should be used before that time period.
+
+When user logout from the platform, his refresh token is revoked. The refresh token is saved in the fast memory access (redis) and when user logout, the token is revoked. During token refresh, the previous refresh token is revoked.
