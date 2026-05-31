@@ -24,7 +24,9 @@ The `core` folder also implements the `Avatar` type which is used to represent a
 
 Here are the other folders and their role
 
+- `api`: implements the API layer of the services for HTTP request handling.
 - `auth`: implement methods manual and openid based authentication.
+- `cmd`: contains `main.go` file, the starting point of the application. It also has `app` folder that implements the `App` structure, creates the server and attaches the API endpoints.
 - `middlewares`: implements the middlewares for authorization and utilites needed.
 - `models`: defines the gorm models of all the core and other persistent objects.
 - `notifications`: implements the service for notifying users of the project activies.
@@ -33,4 +35,38 @@ Here are the other folders and their role
 
 ## Authentication & Authorization
 
-To be continued...
+The backend supports the manual and openid methods of authentication. In manual method, the backend uses the basic username & password pattern to login. In the OpenID method, the backend supports google based authentication for now.
+
+### Manual authentication
+
+The user can register to the platform with the manual authentication method. User needs to put - username, email, display name and password.
+
+After user registers to the platform, he needs to verify the email address. An email will be sent to the email address with a verification link. User will click on the link and verify the email address.
+
+User will use the email address and password to login to the platform if he has created a manual method based account.
+
+After the login, the user gets access token and refresh token. The access token expires in 15 minutes. The refresh token is valid for 1 week. Refresh token is used to get new access token when the access token expires. When refresh token is used, it rotates the refresh token as well to prevent attacks.
+
+When the login API is called, the refresh token is sent as cookie and the access token is sent in the response body along with the user data.
+
+The cookie has the following properties:
+
+- Name: `TOKEN`
+- Path: `/`
+- `HttpOnly`, `Secure` and `SameSite=Lax`
+
+The HTTP response contains the following:
+
+```json
+{
+    "access_token": ...,
+    "expires_at": ...,
+    "user": {
+        "user_id": ...,
+        "username": ...,
+        "email": ...,
+        "display_name": ...,
+        "avatar_url": ...,
+    },
+}
+```
