@@ -28,7 +28,7 @@ import (
 
 type patternWithHandler struct {
 	method, pattern string
-	handler         api.HTTPErrorHandler
+	handler         middlewares.HTTPErrorHandler
 }
 
 type App struct {
@@ -313,7 +313,7 @@ func NewApp(
 	for _, h := range patternWithHandlers {
 		handler.Handle(
 			h.method+" "+prefix+h.pattern,
-			api.HTTPErrorHandler(h.handler),
+			middlewares.HTTPErrorHandler(h.handler),
 		)
 	}
 

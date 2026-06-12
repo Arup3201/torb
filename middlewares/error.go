@@ -1,4 +1,4 @@
-package api
+package middlewares
 
 import (
 	"encoding/json"
@@ -8,6 +8,8 @@ import (
 
 	"github.com/Arup3201/torb/core"
 )
+
+const RESPONSE_ERROR_STATUS = "error"
 
 type ErrorBody struct {
 	Id      string `json:"id"`

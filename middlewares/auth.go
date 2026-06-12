@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Arup3201/torb/api"
 	"github.com/Arup3201/torb/auth"
 	"github.com/Arup3201/torb/core"
 )
@@ -20,7 +19,7 @@ func NewAuthenticator(tokenService *auth.TokenService) *Authenticator {
 	}
 }
 
-func (m *Authenticator) IsAuthenticated(next api.HTTPErrorHandler) api.HTTPErrorHandler {
+func (m *Authenticator) IsAuthenticated(next HTTPErrorHandler) HTTPErrorHandler {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		bearer := r.Header.Get("Authorization")
 		if strings.Trim(bearer, " ") == "" {
