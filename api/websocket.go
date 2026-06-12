@@ -1,28 +1,31 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/Arup3201/torb/auth"
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 )
 
-var notifier = WebSocketNotifier{
-	clients:    []*WebSocketClient{},
-	register:   make(chan *WebSocketClient),
-	unregister: make(chan *WebSocketClient),
-}
-
-func init() {
-	go notifier.Run()
-}
+// singleton
+var notifier *WebSocketNotifier
 
 type WebSocketConnectionHandler struct {
 	tokenService *auth.TokenService
+	notifier     *WebSocketNotifier
+}
+
+func NewWebSocketConnectionHandler(tokenService *auth.TokenService) *WebSocketConnectionHandler {
+	return &WebSocketConnectionHandler{
+		tokenService: tokenService,
+		notifier:     NewWebSocketNotifier(),
+	}
 }
 
 func (h *WebSocketConnectionHandler) WebSocketConnector(w http.ResponseWriter, r *http.Request) {
@@ -33,10 +36,12 @@ func (h *WebSocketConnectionHandler) WebSocketConnector(w http.ResponseWriter, r
 	}
 	defer c.CloseNow()
 
-	client := &WebSocketClient{connection: c, clientID: uuid.NewString()}
-	notifier.register <- client
+	client := NewWebSocketClient(c)
+	h.notifier.register <- client
 
 	ctx := r.Context()
+
+	go client.writePump()
 
 	var message map[string]string
 	var data []byte
@@ -75,7 +80,7 @@ func (h *WebSocketConnectionHandler) WebSocketConnector(w http.ResponseWriter, r
 		}
 	}
 
-	notifier.unregister <- client
+	h.notifier.unregister <- client
 	c.Close(websocket.StatusNormalClosure, "")
 }
 
@@ -83,11 +88,57 @@ type WebSocketClient struct {
 	connection *websocket.Conn
 	clientID   string
 	userID     string
+	send       chan []byte
+}
+
+func NewWebSocketClient(c *websocket.Conn) *WebSocketClient {
+	return &WebSocketClient{
+		connection: c,
+		clientID:   uuid.NewString(),
+		send:       make(chan []byte),
+	}
+}
+
+func (c *WebSocketClient) writePump() {
+	var err error
+	var data []byte
+	var ctx context.Context
+	var cancel context.CancelFunc
+	for data = range c.send {
+		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+		err = c.connection.Write(ctx, websocket.MessageText, data)
+		if err != nil {
+			cancel()
+			log.Printf("WebSocket write error: %v", err)
+			return // Exit the goroutine on error
+		}
+		cancel()
+	}
+}
+
+type NotificationData struct {
+	userID string
+	data   []byte
 }
 
 type WebSocketNotifier struct {
 	clients              []*WebSocketClient
 	register, unregister chan *WebSocketClient
+	notify               chan NotificationData
+}
+
+func NewWebSocketNotifier() *WebSocketNotifier {
+	if notifier == nil {
+		notifier = &WebSocketNotifier{
+			clients:    []*WebSocketClient{},
+			register:   make(chan *WebSocketClient),
+			unregister: make(chan *WebSocketClient),
+			notify:     make(chan NotificationData),
+		}
+		go notifier.Run()
+	}
+
+	return notifier
 }
 
 func (n *WebSocketNotifier) Run() {
@@ -104,6 +155,15 @@ func (n *WebSocketNotifier) Run() {
 			n.clients[ind].connection.CloseNow()
 
 			n.clients = append(n.clients[:ind], n.clients[ind+1:]...)
+		case notification := <-n.notify:
+			ind := slices.IndexFunc(n.clients, func(c *WebSocketClient) bool {
+				return c.userID == notification.userID
+			})
+			if ind != -1 {
+				n.clients[ind].send <- notification.data
+			} else {
+				log.Printf("[ERROR] notification user ID not found\n")
+			}
 		}
 	}
 }

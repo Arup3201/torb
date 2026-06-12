@@ -13,6 +13,15 @@ import (
 	"time"
 
 	"github.com/Arup3201/torb/auth"
+	"github.com/Arup3201/torb/core"
+	"github.com/Arup3201/torb/core/members"
+	"github.com/Arup3201/torb/core/projects"
+	"github.com/Arup3201/torb/core/requests"
+	"github.com/Arup3201/torb/core/tasks"
+	"github.com/Arup3201/torb/core/users"
+	"github.com/Arup3201/torb/middlewares"
+	"github.com/Arup3201/torb/models"
+	"github.com/Arup3201/torb/notifications"
 	"github.com/Arup3201/torb/testdata"
 	"github.com/Arup3201/torb/testhelpers"
 	"github.com/Arup3201/torb/testhelpers/fixtures"
@@ -24,7 +33,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var TEST_USER string
+var TEST_USER, TEST_PROJECT string
 
 func TestRealtimeNotification(t *testing.T) {
 	suite.Run(t, new(realtimeTestSuite))
@@ -32,9 +41,10 @@ func TestRealtimeNotification(t *testing.T) {
 
 type realtimeTestSuite struct {
 	suite.Suite
-	tokenService    *auth.TokenService
-	websocketServer *httptest.Server
-	url             string
+	tokenService *auth.TokenService
+	muxHandler   *http.ServeMux
+	wsServer     *httptest.Server
+	url          string
 }
 
 func (suite *realtimeTestSuite) SetupSuite() {
@@ -55,8 +65,11 @@ func (suite *realtimeTestSuite) SetupSuite() {
 		log.Fatal(err)
 	}
 
+	db.AutoMigrate(&models.Notification{})
+
 	f := fixtures.New(ctx, db)
 	TEST_USER = f.InsertUser(fixtures.RandomUserRow())
+	TEST_PROJECT = f.InsertProject(fixtures.RandomProjectRow(TEST_USER))
 
 	redisContainer, err := testhelpers.CreateRedisContainer(ctx)
 	if err != nil {
@@ -100,13 +113,49 @@ VRE5pSFPQliu
 	privateKey := parseResult.(*rsa.PrivateKey)
 	suite.tokenService = auth.NewTokenService(store, "test", privateKey)
 
-	handler := &WebSocketConnectionHandler{suite.tokenService}
-	suite.websocketServer = httptest.NewServer(http.HandlerFunc(handler.WebSocketConnector))
-	suite.url = strings.Replace(suite.websocketServer.URL, "http", "ws", 1)
+	txManager := core.NewTxManager(db)
+	projectRepo := projects.NewProjectRepository(db)
+	memberRepo := members.NewMemberRepository(db)
+	userRepo := users.NewUserRepository(db)
+	joinRepo := requests.NewJoinRepository(db)
+	notificationRepo := notifications.NewNotificationRepository(db)
+	taskRepo := tasks.NewTaskRepository(db)
+	projectService := projects.NewProjectService(
+		txManager,
+		projectRepo,
+		memberRepo)
+	userService := users.NewUserService(userRepo)
+	memberService := members.NewMemberService(memberRepo)
+	joinService := requests.NewJoinRequestService(
+		txManager,
+		joinRepo,
+		memberRepo,
+	)
+	notificationService := notifications.NewNotificationService(
+		projectRepo,
+		taskRepo,
+		memberRepo,
+		userRepo,
+		notificationRepo,
+	)
+
+	wsHandler := NewWebSocketConnectionHandler(suite.tokenService)
+	projectHandler := NewProjectApi(
+		projectService,
+		userService,
+		memberService,
+		joinService,
+		notificationService)
+	suite.muxHandler = http.NewServeMux()
+	suite.muxHandler.Handle("GET /", http.HandlerFunc(wsHandler.WebSocketConnector))
+	authenticator := middlewares.NewAuthenticator(suite.tokenService)
+	suite.muxHandler.Handle("POST /projects/{id}/join-requests", middlewares.HTTPErrorHandler(authenticator.IsAuthenticated(projectHandler.AddJoinRequest)))
+	suite.wsServer = httptest.NewServer(http.HandlerFunc(wsHandler.WebSocketConnector))
+	suite.url = strings.Replace(suite.wsServer.URL, "http", "ws", 1)
 }
 
 func (suite *realtimeTestSuite) Cleanup() {
-	suite.websocketServer.Close()
+	suite.wsServer.Close()
 }
 
 func (suite *realtimeTestSuite) TestWebSocketHandshake() {
@@ -185,6 +234,44 @@ func (suite *realtimeTestSuite) TestWebSocketAuthenticationFail() {
 	err = wsjson.Read(ctx, c, &v)
 	suite.Require().NoError(err)
 	suite.Require().Equal("error", v["type"])
+
+	c.Close(websocket.StatusNormalClosure, "")
+}
+
+func (suite *realtimeTestSuite) TestWebSocketTaskAddedNotification() {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	c, _, err := websocket.Dial(ctx, suite.url, nil)
+	suite.Require().NoError(err)
+	defer c.CloseNow()
+
+	accessToken, err := suite.tokenService.CreateAccessToken(ctx, TEST_USER)
+	suite.Require().NoError(err)
+	err = wsjson.Write(ctx, c, map[string]string{
+		"type":  "token",
+		"token": accessToken.Value,
+	})
+	suite.Require().NoError(err)
+	var v map[string]string
+	err = wsjson.Read(ctx, c, &v)
+	suite.Require().NoError(err)
+
+	req := httptest.NewRequest("POST", "/projects/"+TEST_PROJECT+"/join-requests", nil)
+	req.Header.Set("Authorization", "Bearer "+accessToken.Value)
+	res := httptest.NewRecorder()
+
+	suite.muxHandler.ServeHTTP(res, req)
+	suite.Require().NoError(err)
+	suite.Require().Equal(http.StatusOK, res.Result().StatusCode)
+
+	var msg struct {
+		Type string                       `json:"type"`
+		Data *notifications.JoinRequested `json:"data"`
+	}
+	err = wsjson.Read(ctx, c, &msg)
+	suite.Require().NoError(err)
+	suite.Require().Equal(notifications.NT_JOIN_REQUESTED, msg.Type)
 
 	c.Close(websocket.StatusNormalClosure, "")
 }
