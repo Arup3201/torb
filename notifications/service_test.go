@@ -295,7 +295,7 @@ func (suite *notificationServiceTestSuite) TestJoinRequested() {
 	t.Run("should create join_requested notification", func(t *testing.T) {
 		p := suite.fixtures.InsertProject(fixtures.RandomProjectRow(USER_ONE))
 
-		err := suite.service.JoinRequested(suite.ctx, p, USER_TWO)
+		_, err := suite.service.JoinRequested(suite.ctx, p, USER_TWO)
 
 		n, _ :=
 			gorm.G[models.Notification](suite.db).

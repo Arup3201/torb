@@ -303,19 +303,19 @@ func (s *NotificationService) AssigneeUpdated(ctx context.Context,
 
 func (s *NotificationService) JoinRequested(ctx context.Context,
 	projectID string,
-	requestorID string) error {
+	requestorID string) (*JoinRequested, error) {
 
 	project, err := s.projectRepo.Get(ctx, projectID)
 	if err != nil {
-		return fmt.Errorf("project repository Get: %w", err)
+		return nil, fmt.Errorf("project repository Get: %w", err)
 	}
 
 	requestor, err := s.userRepo.Get(ctx, requestorID)
 	if err != nil {
-		return fmt.Errorf("user repository Get: %w", err)
+		return nil, fmt.Errorf("user repository Get: %w", err)
 	}
 
-	body, _ := json.Marshal(JoinRequested{
+	data := JoinRequested{
 		Project: ProjectBody{
 			ID:   projectID,
 			Name: project.Name,
@@ -327,7 +327,8 @@ func (s *NotificationService) JoinRequested(ctx context.Context,
 			Email:       requestor.Email,
 			AvatarURL:   requestor.AvatarURL,
 		},
-	})
+	}
+	body, _ := json.Marshal(data)
 
 	_, err = s.notificationRepo.Create(
 		ctx,
@@ -337,10 +338,10 @@ func (s *NotificationService) JoinRequested(ctx context.Context,
 		false,
 	)
 	if err != nil {
-		return fmt.Errorf("notification repository Create: %w", err)
+		return nil, fmt.Errorf("notification repository Create: %w", err)
 	}
 
-	return nil
+	return &data, nil
 }
 
 func (s *NotificationService) JoinResponded(ctx context.Context,

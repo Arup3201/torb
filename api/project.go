@@ -64,6 +64,7 @@ type UpdateJoinRequest struct {
 }
 
 type ProjectApi struct {
+	notifier            *WebSocketNotifier
 	projectService      *projects.ProjectService
 	userService         *users.UserService
 	memberService       *members.MemberService
@@ -79,6 +80,7 @@ func NewProjectApi(
 	notificationService *notifications.NotificationService,
 ) *ProjectApi {
 	return &ProjectApi{
+		notifier:            NewWebSocketNotifier(),
 		projectService:      projectService,
 		userService:         userService,
 		memberService:       memberService,
@@ -373,7 +375,7 @@ func (api *ProjectApi) AddJoinRequest(w http.ResponseWriter, r *http.Request) er
 		return fmt.Errorf("join request service create: %w", err)
 	}
 
-	err = api.notificationService.JoinRequested(
+	nData, err := api.notificationService.JoinRequested(
 		r.Context(),
 		projectID,
 		userID,
@@ -382,6 +384,21 @@ func (api *ProjectApi) AddJoinRequest(w http.ResponseWriter, r *http.Request) er
 		log.Printf("[ERROR] notification service JoinRequested: %s", err)
 	}
 
+	data, err := json.Marshal(struct {
+		Type string                       `json:"type"`
+		Data *notifications.JoinRequested `json:"data"`
+	}{
+		Type: notifications.NT_JOIN_REQUESTED,
+		Data: nData,
+	})
+	if err != nil {
+		log.Printf("[ERROR] realtime notification json Marshal: %s", err)
+	} else {
+		api.notifier.notify <- NotificationData{
+			userID: userID,
+			data:   data,
+		}
+	}
 	json.NewEncoder(w).Encode(HTTPSuccessResponse[any]{
 		Status:  RESPONSE_SUCCESS_STATUS,
 		Message: "Join request created",
