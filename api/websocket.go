@@ -29,7 +29,9 @@ func NewWebSocketConnectionHandler(tokenService *auth.TokenService) *WebSocketCo
 }
 
 func (h *WebSocketConnectionHandler) WebSocketConnector(w http.ResponseWriter, r *http.Request) {
-	c, err := websocket.Accept(w, r, nil)
+	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		InsecureSkipVerify: true, // TODO: Not Secure
+	})
 	if err != nil {
 		log.Printf("[ERROR] WebSocket Accept: %s\n", err)
 		return
@@ -72,11 +74,9 @@ func (h *WebSocketConnectionHandler) WebSocketConnector(w http.ResponseWriter, r
 			}
 
 			client.userID = userID
+			client.isAuthenticated = true
+			client.timer = time.NewTimer(auth.ACCESS_TOKEN_DURATION_DEFAULT)
 			c.Write(ctx, websocket.MessageText, []byte(`{"type": "ack"}`))
-		} else {
-			if client.userID == "" {
-				c.Write(ctx, websocket.MessageText, []byte(`{"type": "error", "error": "Client is not authenticated"}`))
-			}
 		}
 	}
 
@@ -85,10 +85,11 @@ func (h *WebSocketConnectionHandler) WebSocketConnector(w http.ResponseWriter, r
 }
 
 type WebSocketClient struct {
-	connection *websocket.Conn
-	clientID   string
-	userID     string
-	send       chan []byte
+	connection       *websocket.Conn
+	userID, clientID string
+	isAuthenticated  bool
+	timer            *time.Timer
+	send             chan []byte
 }
 
 func NewWebSocketClient(c *websocket.Conn) *WebSocketClient {
@@ -99,20 +100,44 @@ func NewWebSocketClient(c *websocket.Conn) *WebSocketClient {
 	}
 }
 
+// TODO: [POTENTIAL BUG] This may cause memory issue. I am not sure if the function
+// exits properly when the connection is lost or the client is removed from
+// the list of listeners
 func (c *WebSocketClient) writePump() {
 	var err error
 	var data []byte
 	var ctx context.Context
 	var cancel context.CancelFunc
-	for data = range c.send {
-		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
-		err = c.connection.Write(ctx, websocket.MessageText, data)
-		if err != nil {
-			cancel()
-			log.Printf("WebSocket write error: %v", err)
-			return // Exit the goroutine on error
+	for {
+		if c.timer == nil {
+			continue
 		}
-		cancel()
+
+		select {
+		case data = <-c.send:
+			if !c.isAuthenticated {
+				continue
+			}
+
+			ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+			err = c.connection.Write(ctx, websocket.MessageText, data)
+			if err != nil {
+				cancel()
+				log.Printf("WebSocket write error: %v", err)
+				return // Exit the goroutine on error
+			}
+			cancel()
+		case <-c.timer.C:
+			c.isAuthenticated = false
+			ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+			err = c.connection.Write(ctx, websocket.MessageText, []byte(`{"type": "refresh"}`))
+			if err != nil {
+				cancel()
+				log.Printf("WebSocket write error: %v", err)
+				return // Exit the goroutine on error
+			}
+			cancel()
+		}
 	}
 }
 
@@ -151,6 +176,9 @@ func (n *WebSocketNotifier) Run() {
 				return c.clientID == client.clientID
 			})
 
+			if n.clients[ind].timer != nil {
+				n.clients[ind].timer.Stop()
+			}
 			n.clients[ind].connection.Close(websocket.StatusNormalClosure, "")
 			n.clients[ind].connection.CloseNow()
 
