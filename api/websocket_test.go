@@ -238,7 +238,7 @@ func (suite *realtimeTestSuite) TestWebSocketAuthenticationFail() {
 	c.Close(websocket.StatusNormalClosure, "")
 }
 
-func (suite *realtimeTestSuite) TestWebSocketTaskAddedNotification() {
+func (suite *realtimeTestSuite) TestWebSocketJoinRequestNotification() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
