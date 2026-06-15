@@ -303,7 +303,7 @@ func (s *NotificationService) AssigneeUpdated(ctx context.Context,
 
 func (s *NotificationService) JoinRequested(ctx context.Context,
 	projectID string,
-	requestorID string) (*JoinRequested, error) {
+	requestorID string) ([]byte, error) {
 
 	project, err := s.projectRepo.Get(ctx, projectID)
 	if err != nil {
@@ -341,7 +341,15 @@ func (s *NotificationService) JoinRequested(ctx context.Context,
 		return nil, fmt.Errorf("notification repository Create: %w", err)
 	}
 
-	return &data, nil
+	jsonData, err := json.Marshal(struct {
+		Type string        `json:"type"`
+		Data JoinRequested `json:"data"`
+	}{
+		Type: NT_JOIN_REQUESTED,
+		Data: data,
+	})
+
+	return jsonData, nil
 }
 
 func (s *NotificationService) JoinResponded(ctx context.Context,
