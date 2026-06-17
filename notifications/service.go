@@ -107,24 +107,24 @@ func NewNotificationService(
 }
 
 func (s *NotificationService) TaskAdded(ctx context.Context,
-	projectID, taskID string) error {
+	projectID, taskID string) ([]byte, []string, error) {
 
 	project, err := s.projectRepo.Get(ctx, projectID)
 	if err != nil {
-		return fmt.Errorf("project repository Get: %w", err)
+		return nil, nil, fmt.Errorf("project repository Get: %w", err)
 	}
 
 	task, err := s.taskRepo.Get(ctx, taskID)
 	if err != nil {
-		return fmt.Errorf("task repository Get: %w", err)
+		return nil, nil, fmt.Errorf("task repository Get: %w", err)
 	}
 
 	members, err := s.membershipRepo.List(ctx, projectID)
 	if err != nil {
-		return fmt.Errorf("membership repository Get: %w", err)
+		return nil, nil, fmt.Errorf("membership repository Get: %w", err)
 	}
 
-	body, _ := json.Marshal(TaskAdded{
+	taskAddedData := TaskAdded{
 		Project: ProjectBody{
 			ID:   projectID,
 			Name: project.Name,
@@ -133,7 +133,8 @@ func (s *NotificationService) TaskAdded(ctx context.Context,
 			ID:    taskID,
 			Title: task.Title,
 		},
-	})
+	}
+	body, _ := json.Marshal(taskAddedData)
 	for _, m := range members {
 		if m.Role.String == core.ROLE_OWNER {
 			continue
@@ -141,31 +142,44 @@ func (s *NotificationService) TaskAdded(ctx context.Context,
 
 		_, err := s.notificationRepo.Create(ctx, m.UserID, NT_TASK_ADDED, body, false)
 		if err != nil {
-			return fmt.Errorf("notification repository Create: %w", err)
+			return nil, nil, fmt.Errorf("notification repository Create: %w", err)
 		}
 	}
 
-	return nil
+	jsonData, _ := json.Marshal(struct {
+		Type string    `json:"type"`
+		Data TaskAdded `json:"data"`
+	}{
+		Type: NT_TASK_ADDED,
+		Data: taskAddedData,
+	})
+
+	notificaionReceivers := []string{}
+	for _, m := range members {
+		notificaionReceivers = append(notificaionReceivers, m.UserID)
+	}
+
+	return jsonData, notificaionReceivers, nil
 }
 
 func (s *NotificationService) TaskUpdated(ctx context.Context,
 	projectID, taskID string,
 	title, description, status *string,
-	updaterID string) error {
+	updaterID string) ([]byte, []string, error) {
 
 	project, err := s.projectRepo.Get(ctx, projectID)
 	if err != nil {
-		return fmt.Errorf("project repository Get: %w", err)
+		return nil, nil, fmt.Errorf("project repository Get: %w", err)
 	}
 
 	task, err := s.taskRepo.Get(ctx, taskID)
 	if err != nil {
-		return fmt.Errorf("task repository Get: %w", err)
+		return nil, nil, fmt.Errorf("task repository Get: %w", err)
 	}
 
 	updater, err := s.userRepo.Get(ctx, updaterID)
 	if err != nil {
-		return fmt.Errorf("user repository Get: %w", err)
+		return nil, nil, fmt.Errorf("user repository Get: %w", err)
 	}
 
 	updates := []TaskUpdateBody{}
@@ -188,7 +202,7 @@ func (s *NotificationService) TaskUpdated(ctx context.Context,
 		})
 	}
 
-	body, _ := json.Marshal(TaskUpdated{
+	taskUpdatedData := TaskUpdated{
 		Project: ProjectBody{
 			ID:   projectID,
 			Name: project.Name,
@@ -205,7 +219,8 @@ func (s *NotificationService) TaskUpdated(ctx context.Context,
 			Email:       updater.Email,
 			AvatarURL:   updater.AvatarURL,
 		},
-	})
+	}
+	body, _ := json.Marshal(taskUpdatedData)
 
 	if project.OwnerID != updaterID {
 		_, err := s.notificationRepo.Create(
@@ -216,7 +231,7 @@ func (s *NotificationService) TaskUpdated(ctx context.Context,
 			false,
 		)
 		if err != nil {
-			return fmt.Errorf("notification repository Create: %w", err)
+			return nil, nil, fmt.Errorf("notification repository Create: %w", err)
 		}
 	}
 
@@ -233,34 +248,47 @@ func (s *NotificationService) TaskUpdated(ctx context.Context,
 			false,
 		)
 		if err != nil {
-			return fmt.Errorf("notification repository Create: %w", err)
+			return nil, nil, fmt.Errorf("notification repository Create: %w", err)
 		}
 	}
 
-	return nil
+	jsonData, _ := json.Marshal(struct {
+		Type string      `json:"type"`
+		Data TaskUpdated `json:"data"`
+	}{
+		Type: NT_TASK_UPDATED,
+		Data: taskUpdatedData,
+	})
+
+	receivers := []string{}
+	for _, m := range task.Assignees {
+		receivers = append(receivers, m.AssigneeID)
+	}
+
+	return jsonData, receivers, nil
 }
 
 func (s *NotificationService) AssigneeUpdated(ctx context.Context,
 	projectID, taskID string,
 	assigneeID string,
-	isAdded bool) error {
+	isAdded bool) ([]byte, error) {
 
 	project, err := s.projectRepo.Get(ctx, projectID)
 	if err != nil {
-		return fmt.Errorf("project repository Get: %w", err)
+		return nil, fmt.Errorf("project repository Get: %w", err)
 	}
 
 	task, err := s.taskRepo.Get(ctx, taskID)
 	if err != nil {
-		return fmt.Errorf("task repository Get: %w", err)
+		return nil, fmt.Errorf("task repository Get: %w", err)
 	}
 
 	assignee, err := s.userRepo.Get(ctx, assigneeID)
 	if err != nil {
-		return fmt.Errorf("user repository Get: %w", err)
+		return nil, fmt.Errorf("user repository Get: %w", err)
 	}
 
-	body, _ := json.Marshal(AssigneeUpdated{
+	taskAssignedData := AssigneeUpdated{
 		Project: ProjectBody{
 			ID:   projectID,
 			Name: project.Name,
@@ -276,7 +304,8 @@ func (s *NotificationService) AssigneeUpdated(ctx context.Context,
 			Email:       assignee.Email,
 			AvatarURL:   assignee.AvatarURL,
 		},
-	})
+	}
+	body, _ := json.Marshal(taskAssignedData)
 
 	var notificationType string
 	if isAdded {
@@ -294,11 +323,19 @@ func (s *NotificationService) AssigneeUpdated(ctx context.Context,
 			false,
 		)
 		if err != nil {
-			return fmt.Errorf("notification repository Create: %w", err)
+			return nil, fmt.Errorf("notification repository Create: %w", err)
 		}
 	}
 
-	return nil
+	jsonData, _ := json.Marshal(struct {
+		Type string          `json:"type"`
+		Data AssigneeUpdated `json:"data"`
+	}{
+		Type: notificationType,
+		Data: taskAssignedData,
+	})
+
+	return jsonData, nil
 }
 
 func (s *NotificationService) JoinRequested(ctx context.Context,
@@ -355,19 +392,19 @@ func (s *NotificationService) JoinRequested(ctx context.Context,
 func (s *NotificationService) JoinResponded(ctx context.Context,
 	projectID string,
 	requestorID string,
-	status string) error {
+	status string) ([]byte, error) {
 
 	project, err := s.projectRepo.Get(ctx, projectID)
 	if err != nil {
-		return fmt.Errorf("project repository Get: %w", err)
+		return nil, fmt.Errorf("project repository Get: %w", err)
 	}
 
 	responder, err := s.userRepo.Get(ctx, project.OwnerID)
 	if err != nil {
-		return fmt.Errorf("user repository Get: %w", err)
+		return nil, fmt.Errorf("user repository Get: %w", err)
 	}
 
-	body, _ := json.Marshal(JoinResponded{
+	joinRespondedData := JoinResponded{
 		Project: ProjectBody{
 			ID:   projectID,
 			Name: project.Name,
@@ -380,7 +417,8 @@ func (s *NotificationService) JoinResponded(ctx context.Context,
 			AvatarURL:   responder.AvatarURL,
 		},
 		Status: status,
-	})
+	}
+	body, _ := json.Marshal(joinRespondedData)
 
 	_, err = s.notificationRepo.Create(
 		ctx,
@@ -390,32 +428,40 @@ func (s *NotificationService) JoinResponded(ctx context.Context,
 		false,
 	)
 	if err != nil {
-		return fmt.Errorf("notification repository Create: %w", err)
+		return nil, fmt.Errorf("notification repository Create: %w", err)
 	}
 
-	return nil
+	jsonData, _ := json.Marshal(struct {
+		Type string        `json:"type"`
+		Data JoinResponded `json:"data"`
+	}{
+		Type: NT_JOIN_RESPONDED,
+		Data: joinRespondedData,
+	})
+
+	return jsonData, nil
 }
 
 func (s *NotificationService) CommentAdded(ctx context.Context,
 	projectID, taskID string,
-	commenterID string) error {
+	commenterID string) ([]byte, []string, error) {
 
 	project, err := s.projectRepo.Get(ctx, projectID)
 	if err != nil {
-		return fmt.Errorf("project repository Get: %w", err)
+		return nil, nil, fmt.Errorf("project repository Get: %w", err)
 	}
 
 	task, err := s.taskRepo.Get(ctx, taskID)
 	if err != nil {
-		return fmt.Errorf("task repository Get: %w", err)
+		return nil, nil, fmt.Errorf("task repository Get: %w", err)
 	}
 
 	commenter, err := s.userRepo.Get(ctx, commenterID)
 	if err != nil {
-		return fmt.Errorf("user repository Get: %w", err)
+		return nil, nil, fmt.Errorf("user repository Get: %w", err)
 	}
 
-	body, _ := json.Marshal(CommentAdded{
+	commentAddedData := CommentAdded{
 		Project: ProjectBody{
 			ID:   projectID,
 			Name: project.Name,
@@ -431,7 +477,8 @@ func (s *NotificationService) CommentAdded(ctx context.Context,
 			Email:       commenter.Email,
 			AvatarURL:   commenter.AvatarURL,
 		},
-	})
+	}
+	body, _ := json.Marshal(commentAddedData)
 
 	for _, assignee := range task.Assignees {
 		_, err = s.notificationRepo.Create(
@@ -442,11 +489,24 @@ func (s *NotificationService) CommentAdded(ctx context.Context,
 			false,
 		)
 		if err != nil {
-			return fmt.Errorf("notification repository Create: %w", err)
+			return nil, nil, fmt.Errorf("notification repository Create: %w", err)
 		}
 	}
 
-	return nil
+	jsonData, _ := json.Marshal(struct {
+		Type string       `json:"type"`
+		Data CommentAdded `json:"data"`
+	}{
+		Type: NT_COMMENT_ADDED,
+		Data: commentAddedData,
+	})
+
+	receivers := []string{}
+	for _, m := range task.Assignees {
+		receivers = append(receivers, m.AssigneeID)
+	}
+
+	return jsonData, receivers, nil
 }
 
 func (s *NotificationService) List(ctx context.Context,

@@ -18,7 +18,7 @@ type WebSocketConnectionHandler struct {
 func NewWebSocketConnectionHandler(tokenService *auth.TokenService) *WebSocketConnectionHandler {
 	return &WebSocketConnectionHandler{
 		tokenService: tokenService,
-		notifier:     realtime.NewWebSocketNotifier(),
+		notifier:     realtime.GlobalWebSocketNotifier(),
 	}
 }
 

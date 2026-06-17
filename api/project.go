@@ -81,7 +81,7 @@ func NewProjectApi(
 	notificationService *notifications.NotificationService,
 ) *ProjectApi {
 	return &ProjectApi{
-		notifier:            realtime.NewWebSocketNotifier(),
+		notifier:            realtime.GlobalWebSocketNotifier(),
 		projectService:      projectService,
 		userService:         userService,
 		memberService:       memberService,
@@ -464,7 +464,7 @@ func (api *ProjectApi) RespondToJoinRequest(w http.ResponseWriter, r *http.Reque
 		return fmt.Errorf("join request service respond: %w", err)
 	}
 
-	err = api.notificationService.JoinResponded(
+	data, err := api.notificationService.JoinResponded(
 		r.Context(),
 		projectID,
 		payload.UserID,
@@ -473,6 +473,8 @@ func (api *ProjectApi) RespondToJoinRequest(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		log.Printf("[ERROR] notification service JoinResponded: %s", err)
 	}
+
+	api.notifier.Notify(payload.UserID, data)
 
 	json.NewEncoder(w).Encode(HTTPSuccessResponse[any]{
 		Status:  RESPONSE_SUCCESS_STATUS,

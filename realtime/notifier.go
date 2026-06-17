@@ -88,7 +88,7 @@ type WebSocketNotifier struct {
 	notify               chan NotificationData
 }
 
-func NewWebSocketNotifier() *WebSocketNotifier {
+func GlobalWebSocketNotifier() *WebSocketNotifier {
 	if notifier == nil {
 		notifier = &WebSocketNotifier{
 			clients:    []*WebSocketClient{},
@@ -134,6 +134,12 @@ func (n *WebSocketNotifier) Run() {
 
 func (n *WebSocketNotifier) Notify(userID string, data []byte) {
 	n.notify <- NotificationData{UserID: userID, Data: data}
+}
+
+func (n *WebSocketNotifier) BatchNotify(users []string, data []byte) {
+	for _, userID := range users {
+		n.notify <- NotificationData{UserID: userID, Data: data}
+	}
 }
 
 func (n *WebSocketNotifier) Register(client *WebSocketClient) {
