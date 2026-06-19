@@ -222,6 +222,7 @@ func (s *NotificationService) TaskUpdated(ctx context.Context,
 	}
 	body, _ := json.Marshal(taskUpdatedData)
 
+	receivers := []string{}
 	if project.OwnerID != updaterID {
 		_, err := s.notificationRepo.Create(
 			ctx,
@@ -233,6 +234,7 @@ func (s *NotificationService) TaskUpdated(ctx context.Context,
 		if err != nil {
 			return nil, nil, fmt.Errorf("notification repository Create: %w", err)
 		}
+		receivers = append(receivers, project.OwnerID)
 	}
 
 	for _, assignee := range task.Assignees {
@@ -250,6 +252,7 @@ func (s *NotificationService) TaskUpdated(ctx context.Context,
 		if err != nil {
 			return nil, nil, fmt.Errorf("notification repository Create: %w", err)
 		}
+		receivers = append(receivers, assignee.AssigneeID)
 	}
 
 	jsonData, _ := json.Marshal(struct {
@@ -260,32 +263,27 @@ func (s *NotificationService) TaskUpdated(ctx context.Context,
 		Data: taskUpdatedData,
 	})
 
-	receivers := []string{}
-	for _, m := range task.Assignees {
-		receivers = append(receivers, m.AssigneeID)
-	}
-
 	return jsonData, receivers, nil
 }
 
 func (s *NotificationService) AssigneeUpdated(ctx context.Context,
 	projectID, taskID string,
 	assigneeID string,
-	isAdded bool) ([]byte, error) {
+	isAdded bool) ([]byte, []string, error) {
 
 	project, err := s.projectRepo.Get(ctx, projectID)
 	if err != nil {
-		return nil, fmt.Errorf("project repository Get: %w", err)
+		return nil, nil, fmt.Errorf("project repository Get: %w", err)
 	}
 
 	task, err := s.taskRepo.Get(ctx, taskID)
 	if err != nil {
-		return nil, fmt.Errorf("task repository Get: %w", err)
+		return nil, nil, fmt.Errorf("task repository Get: %w", err)
 	}
 
 	assignee, err := s.userRepo.Get(ctx, assigneeID)
 	if err != nil {
-		return nil, fmt.Errorf("user repository Get: %w", err)
+		return nil, nil, fmt.Errorf("user repository Get: %w", err)
 	}
 
 	taskAssignedData := AssigneeUpdated{
@@ -314,6 +312,7 @@ func (s *NotificationService) AssigneeUpdated(ctx context.Context,
 		notificationType = NT_ASSIGNEE_REMOVED
 	}
 
+	receivers := []string{}
 	for _, assignee := range task.Assignees {
 		_, err := s.notificationRepo.Create(
 			ctx,
@@ -323,8 +322,10 @@ func (s *NotificationService) AssigneeUpdated(ctx context.Context,
 			false,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("notification repository Create: %w", err)
+			return nil, nil, fmt.Errorf("notification repository Create: %w", err)
 		}
+
+		receivers = append(receivers, assignee.AssigneeID)
 	}
 
 	jsonData, _ := json.Marshal(struct {
@@ -335,21 +336,21 @@ func (s *NotificationService) AssigneeUpdated(ctx context.Context,
 		Data: taskAssignedData,
 	})
 
-	return jsonData, nil
+	return jsonData, receivers, nil
 }
 
 func (s *NotificationService) JoinRequested(ctx context.Context,
 	projectID string,
-	requestorID string) ([]byte, error) {
+	requestorID string) ([]byte, string, error) {
 
 	project, err := s.projectRepo.Get(ctx, projectID)
 	if err != nil {
-		return nil, fmt.Errorf("project repository Get: %w", err)
+		return nil, "", fmt.Errorf("project repository Get: %w", err)
 	}
 
 	requestor, err := s.userRepo.Get(ctx, requestorID)
 	if err != nil {
-		return nil, fmt.Errorf("user repository Get: %w", err)
+		return nil, "", fmt.Errorf("user repository Get: %w", err)
 	}
 
 	data := JoinRequested{
@@ -375,7 +376,7 @@ func (s *NotificationService) JoinRequested(ctx context.Context,
 		false,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("notification repository Create: %w", err)
+		return nil, "", fmt.Errorf("notification repository Create: %w", err)
 	}
 
 	jsonData, err := json.Marshal(struct {
@@ -386,22 +387,22 @@ func (s *NotificationService) JoinRequested(ctx context.Context,
 		Data: data,
 	})
 
-	return jsonData, nil
+	return jsonData, project.OwnerID, nil
 }
 
 func (s *NotificationService) JoinResponded(ctx context.Context,
 	projectID string,
 	requestorID string,
-	status string) ([]byte, error) {
+	status string) ([]byte, string, error) {
 
 	project, err := s.projectRepo.Get(ctx, projectID)
 	if err != nil {
-		return nil, fmt.Errorf("project repository Get: %w", err)
+		return nil, "", fmt.Errorf("project repository Get: %w", err)
 	}
 
 	responder, err := s.userRepo.Get(ctx, project.OwnerID)
 	if err != nil {
-		return nil, fmt.Errorf("user repository Get: %w", err)
+		return nil, "", fmt.Errorf("user repository Get: %w", err)
 	}
 
 	joinRespondedData := JoinResponded{
@@ -428,7 +429,7 @@ func (s *NotificationService) JoinResponded(ctx context.Context,
 		false,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("notification repository Create: %w", err)
+		return nil, "", fmt.Errorf("notification repository Create: %w", err)
 	}
 
 	jsonData, _ := json.Marshal(struct {
@@ -439,7 +440,7 @@ func (s *NotificationService) JoinResponded(ctx context.Context,
 		Data: joinRespondedData,
 	})
 
-	return jsonData, nil
+	return jsonData, requestorID, nil
 }
 
 func (s *NotificationService) CommentAdded(ctx context.Context,

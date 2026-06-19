@@ -144,7 +144,7 @@ func (api *TaskApi) Create(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			warnings = append(warnings, err.Error())
 		} else {
-			data, err := api.notificationService.AssigneeUpdated(
+			data, receivers, err := api.notificationService.AssigneeUpdated(
 				r.Context(),
 				projectID,
 				taskID,
@@ -155,7 +155,7 @@ func (api *TaskApi) Create(w http.ResponseWriter, r *http.Request) error {
 				log.Printf("[ERROR] notification service AssigneeUpdated: %s", err)
 			}
 
-			api.notifier.Notify(assignee, data)
+			api.notifier.BatchNotify(receivers, data)
 		}
 	}
 
@@ -270,7 +270,7 @@ func (api *TaskApi) Update(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			warnings = append(warnings, err.Error())
 		} else {
-			data, err := api.notificationService.AssigneeUpdated(
+			data, receivers, err := api.notificationService.AssigneeUpdated(
 				r.Context(),
 				projectID,
 				taskID,
@@ -281,7 +281,7 @@ func (api *TaskApi) Update(w http.ResponseWriter, r *http.Request) error {
 				log.Printf("[ERROR] notification service AssigneeUpdated: %s", err)
 			}
 
-			api.notifier.Notify(assignee, data)
+			api.notifier.BatchNotify(receivers, data)
 		}
 	}
 	for _, assignee := range payload.AssigneesToRemove {
@@ -290,7 +290,7 @@ func (api *TaskApi) Update(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			warnings = append(warnings, err.Error())
 		} else {
-			data, err := api.notificationService.AssigneeUpdated(
+			data, receivers, err := api.notificationService.AssigneeUpdated(
 				r.Context(),
 				projectID,
 				taskID,
@@ -301,7 +301,7 @@ func (api *TaskApi) Update(w http.ResponseWriter, r *http.Request) error {
 				log.Printf("[ERROR] notification service AssigneeUpdated: %s", err)
 			}
 
-			api.notifier.Notify(assignee, data)
+			api.notifier.BatchNotify(receivers, data)
 		}
 	}
 

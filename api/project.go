@@ -376,7 +376,7 @@ func (api *ProjectApi) AddJoinRequest(w http.ResponseWriter, r *http.Request) er
 		return fmt.Errorf("join request service create: %w", err)
 	}
 
-	jsonData, err := api.notificationService.JoinRequested(
+	jsonData, receiver, err := api.notificationService.JoinRequested(
 		r.Context(),
 		projectID,
 		userID,
@@ -385,7 +385,7 @@ func (api *ProjectApi) AddJoinRequest(w http.ResponseWriter, r *http.Request) er
 		log.Printf("[ERROR] notification service JoinRequested: %s", err)
 	}
 
-	api.notifier.Notify(userID, jsonData)
+	api.notifier.Notify(receiver, jsonData)
 	json.NewEncoder(w).Encode(HTTPSuccessResponse[any]{
 		Status:  RESPONSE_SUCCESS_STATUS,
 		Message: "Join request created",
@@ -464,7 +464,7 @@ func (api *ProjectApi) RespondToJoinRequest(w http.ResponseWriter, r *http.Reque
 		return fmt.Errorf("join request service respond: %w", err)
 	}
 
-	data, err := api.notificationService.JoinResponded(
+	data, receiver, err := api.notificationService.JoinResponded(
 		r.Context(),
 		projectID,
 		payload.UserID,
@@ -474,7 +474,7 @@ func (api *ProjectApi) RespondToJoinRequest(w http.ResponseWriter, r *http.Reque
 		log.Printf("[ERROR] notification service JoinResponded: %s", err)
 	}
 
-	api.notifier.Notify(payload.UserID, data)
+	api.notifier.Notify(receiver, data)
 
 	json.NewEncoder(w).Encode(HTTPSuccessResponse[any]{
 		Status:  RESPONSE_SUCCESS_STATUS,
