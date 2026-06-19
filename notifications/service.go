@@ -134,6 +134,7 @@ func (s *NotificationService) TaskAdded(ctx context.Context,
 			Title: task.Title,
 		},
 	}
+	receivers := []string{}
 	body, _ := json.Marshal(taskAddedData)
 	for _, m := range members {
 		if m.Role.String == core.ROLE_OWNER {
@@ -144,6 +145,7 @@ func (s *NotificationService) TaskAdded(ctx context.Context,
 		if err != nil {
 			return nil, nil, fmt.Errorf("notification repository Create: %w", err)
 		}
+		receivers = append(receivers, m.UserID)
 	}
 
 	jsonData, _ := json.Marshal(struct {
@@ -154,12 +156,7 @@ func (s *NotificationService) TaskAdded(ctx context.Context,
 		Data: taskAddedData,
 	})
 
-	notificaionReceivers := []string{}
-	for _, m := range members {
-		notificaionReceivers = append(notificaionReceivers, m.UserID)
-	}
-
-	return jsonData, notificaionReceivers, nil
+	return jsonData, receivers, nil
 }
 
 func (s *NotificationService) TaskUpdated(ctx context.Context,
@@ -314,6 +311,10 @@ func (s *NotificationService) AssigneeUpdated(ctx context.Context,
 
 	receivers := []string{}
 	for _, assignee := range task.Assignees {
+		if assignee.AssigneeID == project.OwnerID {
+			continue
+		}
+
 		_, err := s.notificationRepo.Create(
 			ctx,
 			assignee.AssigneeID,
@@ -481,7 +482,12 @@ func (s *NotificationService) CommentAdded(ctx context.Context,
 	}
 	body, _ := json.Marshal(commentAddedData)
 
+	receivers := []string{}
 	for _, assignee := range task.Assignees {
+		if assignee.AssigneeID == commenterID {
+			continue
+		}
+
 		_, err = s.notificationRepo.Create(
 			ctx,
 			assignee.AssigneeID,
@@ -492,6 +498,8 @@ func (s *NotificationService) CommentAdded(ctx context.Context,
 		if err != nil {
 			return nil, nil, fmt.Errorf("notification repository Create: %w", err)
 		}
+
+		receivers = append(receivers, assignee.AssigneeID)
 	}
 
 	jsonData, _ := json.Marshal(struct {
@@ -501,11 +509,6 @@ func (s *NotificationService) CommentAdded(ctx context.Context,
 		Type: NT_COMMENT_ADDED,
 		Data: commentAddedData,
 	})
-
-	receivers := []string{}
-	for _, m := range task.Assignees {
-		receivers = append(receivers, m.AssigneeID)
-	}
 
 	return jsonData, receivers, nil
 }
