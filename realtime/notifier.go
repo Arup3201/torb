@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/Arup3201/torb/auth"
@@ -12,8 +13,10 @@ import (
 )
 
 type WebSocketClient struct {
+	mt               sync.Mutex
 	connection       *websocket.Conn
 	userID, clientID string
+	authTimer        *time.Timer
 	isAuthenticated  bool
 	timer            *time.Timer
 	send             chan []byte
@@ -23,26 +26,30 @@ func NewWebSocketClient(c *websocket.Conn) *WebSocketClient {
 	return &WebSocketClient{
 		connection: c,
 		clientID:   uuid.NewString(),
-		send:       make(chan []byte),
+		send:       make(chan []byte, 10), // buffered
+		authTimer:  time.NewTimer(10 * time.Second),
+		timer:      time.NewTimer(time.Minute),
 	}
 }
 
-// TODO: [POTENTIAL BUG] This may cause memory issue. I am not sure if the function
-// exits properly when the connection is lost or the client is removed from
-// the list of listeners
-func (c *WebSocketClient) WritePump() {
+func (c *WebSocketClient) WritePump(done chan struct{}) {
 	var err error
 	var data []byte
 	var ctx context.Context
 	var cancel context.CancelFunc
+	var timerChan <-chan time.Time
+	var isAuthenticated bool
 	for {
-		if c.timer == nil {
-			continue
-		}
-
+		c.mt.Lock()
+		timerChan = c.timer.C
+		isAuthenticated = c.isAuthenticated
+		c.mt.Unlock()
 		select {
+		case <-c.authTimer.C:
+			c.connection.Close(websocket.StatusAbnormalClosure, "Authentication timeout")
+			return
 		case data = <-c.send:
-			if !c.isAuthenticated {
+			if isAuthenticated {
 				continue
 			}
 
@@ -54,8 +61,11 @@ func (c *WebSocketClient) WritePump() {
 				return // Exit the goroutine on error
 			}
 			cancel()
-		case <-c.timer.C:
+		case <-timerChan:
+			c.mt.Lock()
 			c.isAuthenticated = false
+			c.mt.Unlock()
+
 			ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 			err = c.connection.Write(ctx, websocket.MessageText, []byte(`{"type": "refresh"}`))
 			if err != nil {
@@ -64,14 +74,21 @@ func (c *WebSocketClient) WritePump() {
 				return // Exit the goroutine on error
 			}
 			cancel()
+		case <-done:
+			return
 		}
 	}
 }
 
 func (c *WebSocketClient) Authenticate(userID string) {
 	c.userID = userID
+
+	c.mt.Lock()
 	c.isAuthenticated = true
-	c.timer = time.NewTimer(auth.ACCESS_TOKEN_DURATION_DEFAULT)
+	c.timer.Reset(auth.ACCESS_TOKEN_DURATION_DEFAULT)
+	c.mt.Unlock()
+
+	c.authTimer.Stop() // no effect if already expired
 }
 
 type NotificationData struct {
@@ -112,19 +129,27 @@ func (n *WebSocketNotifier) Run() {
 				return c.clientID == client.clientID
 			})
 
-			if n.clients[ind].timer != nil {
-				n.clients[ind].timer.Stop()
-			}
-			n.clients[ind].connection.Close(websocket.StatusNormalClosure, "")
-			n.clients[ind].connection.CloseNow()
+			if ind != -1 {
+				if n.clients[ind].timer != nil {
+					n.clients[ind].timer.Stop()
+					n.clients[ind].authTimer.Stop() // no effect if already expired
+				}
+				n.clients[ind].connection.Close(websocket.StatusNormalClosure, "")
+				n.clients[ind].connection.CloseNow()
 
-			n.clients = append(n.clients[:ind], n.clients[ind+1:]...)
+				n.clients = append(n.clients[:ind], n.clients[ind+1:]...)
+			}
 		case notification := <-n.notify:
 			ind := slices.IndexFunc(n.clients, func(c *WebSocketClient) bool {
 				return c.userID == notification.UserID
 			})
 			if ind != -1 {
-				n.clients[ind].send <- notification.Data
+				select {
+				case n.clients[ind].send <- notification.Data:
+					// Sent successfully
+				default:
+					log.Printf("[WARN] Send buffer full for user %s, dropping notification\n", notification.UserID)
+				}
 			} else {
 				log.Printf("[ERROR] notification user ID not found\n")
 			}

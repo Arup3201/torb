@@ -37,7 +37,8 @@ func (h *WebSocketConnectionHandler) WebSocketConnector(w http.ResponseWriter, r
 
 	ctx := r.Context()
 
-	go client.WritePump()
+	done := make(chan struct{})
+	go client.WritePump(done)
 
 	var message map[string]string
 	var data []byte
@@ -73,5 +74,5 @@ func (h *WebSocketConnectionHandler) WebSocketConnector(w http.ResponseWriter, r
 	}
 
 	h.notifier.Unregister(client)
-	c.Close(websocket.StatusNormalClosure, "")
+	close(done)
 }
