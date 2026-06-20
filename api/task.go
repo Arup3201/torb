@@ -12,6 +12,7 @@ import (
 	"github.com/Arup3201/torb/core/comments"
 	"github.com/Arup3201/torb/core/tasks"
 	"github.com/Arup3201/torb/notifications"
+	"github.com/Arup3201/torb/realtime"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -70,6 +71,7 @@ type TaskApi struct {
 	assigneeService     *assignees.AssigneeService
 	commentService      *comments.CommentService
 	notificationService *notifications.NotificationService
+	notifier            *realtime.WebSocketNotifier
 }
 
 func NewTaskApi(
@@ -83,6 +85,7 @@ func NewTaskApi(
 		assigneeService:     assigneeService,
 		commentService:      commentService,
 		notificationService: notificationService,
+		notifier:            realtime.GlobalWebSocketNotifier(),
 	}
 }
 
@@ -120,7 +123,7 @@ func (api *TaskApi) Create(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("service create task: %w", err)
 	}
 
-	err = api.notificationService.TaskAdded(
+	data, receivers, err := api.notificationService.TaskAdded(
 		r.Context(),
 		projectID,
 		taskID,
@@ -128,6 +131,8 @@ func (api *TaskApi) Create(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		log.Printf("[ERROR] notification service TaskAdded: %s", err)
 	}
+
+	api.notifier.BatchNotify(receivers, data)
 
 	warnings := []string{}
 	for _, assignee := range payload.Assignees {
@@ -139,7 +144,7 @@ func (api *TaskApi) Create(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			warnings = append(warnings, err.Error())
 		} else {
-			err = api.notificationService.AssigneeUpdated(
+			data, receivers, err := api.notificationService.AssigneeUpdated(
 				r.Context(),
 				projectID,
 				taskID,
@@ -149,6 +154,8 @@ func (api *TaskApi) Create(w http.ResponseWriter, r *http.Request) error {
 			if err != nil {
 				log.Printf("[ERROR] notification service AssigneeUpdated: %s", err)
 			}
+
+			api.notifier.BatchNotify(receivers, data)
 		}
 	}
 
@@ -239,7 +246,7 @@ func (api *TaskApi) Update(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return fmt.Errorf("service task update: %w", err)
 		} else {
-			err = api.notificationService.TaskUpdated(
+			data, receivers, err := api.notificationService.TaskUpdated(
 				r.Context(),
 				projectID,
 				taskID,
@@ -251,6 +258,8 @@ func (api *TaskApi) Update(w http.ResponseWriter, r *http.Request) error {
 			if err != nil {
 				log.Printf("[ERROR] notification service TaskUpdated: %s", err)
 			}
+
+			api.notifier.BatchNotify(receivers, data)
 		}
 	}
 
@@ -261,7 +270,7 @@ func (api *TaskApi) Update(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			warnings = append(warnings, err.Error())
 		} else {
-			err = api.notificationService.AssigneeUpdated(
+			data, receivers, err := api.notificationService.AssigneeUpdated(
 				r.Context(),
 				projectID,
 				taskID,
@@ -271,6 +280,8 @@ func (api *TaskApi) Update(w http.ResponseWriter, r *http.Request) error {
 			if err != nil {
 				log.Printf("[ERROR] notification service AssigneeUpdated: %s", err)
 			}
+
+			api.notifier.BatchNotify(receivers, data)
 		}
 	}
 	for _, assignee := range payload.AssigneesToRemove {
@@ -279,7 +290,7 @@ func (api *TaskApi) Update(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			warnings = append(warnings, err.Error())
 		} else {
-			err = api.notificationService.AssigneeUpdated(
+			data, receivers, err := api.notificationService.AssigneeUpdated(
 				r.Context(),
 				projectID,
 				taskID,
@@ -289,6 +300,8 @@ func (api *TaskApi) Update(w http.ResponseWriter, r *http.Request) error {
 			if err != nil {
 				log.Printf("[ERROR] notification service AssigneeUpdated: %s", err)
 			}
+
+			api.notifier.BatchNotify(receivers, data)
 		}
 	}
 
@@ -398,7 +411,7 @@ func (api *TaskApi) AddComment(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("comment service create: %w", err)
 	}
 
-	err = api.notificationService.CommentAdded(
+	data, receivers, err := api.notificationService.CommentAdded(
 		r.Context(),
 		projectID,
 		taskID,
@@ -407,6 +420,8 @@ func (api *TaskApi) AddComment(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		log.Printf("[ERROR] notification service CommentAdded: %s", err)
 	}
+
+	api.notifier.BatchNotify(receivers, data)
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(HTTPSuccessResponse[string]{

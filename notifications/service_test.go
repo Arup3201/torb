@@ -95,7 +95,7 @@ func (suite *notificationServiceTestSuite) TestTaskAdded() {
 		p := suite.fixtures.InsertProject(fixtures.RandomProjectRow(USER_ONE))
 		suite.fixtures.InsertMember(fixtures.GetMemberRow(p, USER_TWO, core.ROLE_MEMBER))
 		taskID := suite.fixtures.InsertTask(fixtures.RandomTaskRow(p, core.TASK_STATUS_UNASSIGNED))
-		err := suite.service.TaskAdded(suite.ctx, p, taskID)
+		_, _, err := suite.service.TaskAdded(suite.ctx, p, taskID)
 
 		suite.Cleanup()
 		suite.Require().NoError(err)
@@ -154,7 +154,7 @@ func (suite *notificationServiceTestSuite) TestTaskUpdated() {
 		taskID := suite.fixtures.InsertTask(fixtures.RandomTaskRow(p, core.TASK_STATUS_UNASSIGNED))
 		suite.fixtures.InsertAssignee(fixtures.GetAssigneeRow(p, taskID, USER_TWO))
 
-		err := suite.service.TaskUpdated(suite.ctx, p, taskID, &[]string{"New title"}[0], nil, nil, USER_TWO)
+		_, _, err := suite.service.TaskUpdated(suite.ctx, p, taskID, &[]string{"New title"}[0], nil, nil, USER_TWO)
 
 		suite.Cleanup()
 		suite.Require().NoError(err)
@@ -229,7 +229,7 @@ func (suite *notificationServiceTestSuite) TestAssigneeUpdated() {
 		taskID := suite.fixtures.InsertTask(fixtures.RandomTaskRow(p, core.TASK_STATUS_UNASSIGNED))
 		suite.fixtures.InsertAssignee(fixtures.GetAssigneeRow(p, taskID, USER_TWO))
 
-		err := suite.service.AssigneeUpdated(suite.ctx, p, taskID, USER_TWO, true)
+		_, _, err := suite.service.AssigneeUpdated(suite.ctx, p, taskID, USER_TWO, true)
 
 		suite.Cleanup()
 		suite.Require().NoError(err)
@@ -295,7 +295,7 @@ func (suite *notificationServiceTestSuite) TestJoinRequested() {
 	t.Run("should create join_requested notification", func(t *testing.T) {
 		p := suite.fixtures.InsertProject(fixtures.RandomProjectRow(USER_ONE))
 
-		err := suite.service.JoinRequested(suite.ctx, p, USER_TWO)
+		_, _, err := suite.service.JoinRequested(suite.ctx, p, USER_TWO)
 
 		n, _ :=
 			gorm.G[models.Notification](suite.db).
@@ -326,7 +326,7 @@ func (suite *notificationServiceTestSuite) TestJoinResponded() {
 			},
 		})
 
-		err := suite.service.JoinResponded(suite.ctx, p, USER_TWO, core.JOIN_STATUS_ACCEPTED)
+		_, _, err := suite.service.JoinResponded(suite.ctx, p, USER_TWO, core.JOIN_STATUS_ACCEPTED)
 
 		n, _ :=
 			gorm.G[models.Notification](suite.db).
@@ -354,7 +354,7 @@ func (suite *notificationServiceTestSuite) TestCommentAdded() {
 		taskID := suite.fixtures.InsertTask(fixtures.RandomTaskRow(p, core.TASK_STATUS_UNASSIGNED))
 		suite.fixtures.InsertAssignee(fixtures.GetAssigneeRow(p, taskID, USER_TWO))
 
-		err := suite.service.CommentAdded(suite.ctx, p, taskID, USER_TWO)
+		_, _, err := suite.service.CommentAdded(suite.ctx, p, taskID, USER_TWO)
 
 		n, _ :=
 			gorm.G[models.Notification](suite.db).

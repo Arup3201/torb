@@ -28,7 +28,7 @@ import (
 
 type patternWithHandler struct {
 	method, pattern string
-	handler         api.HTTPErrorHandler
+	handler         middlewares.HTTPErrorHandler
 }
 
 type App struct {
@@ -145,6 +145,7 @@ func NewApp(
 		notificationService,
 	)
 	messageApi := api.NewMessageApi(notificationService)
+	webSocketApi := api.NewWebSocketConnectionHandler(tokenService)
 
 	patternWithHandlers := []patternWithHandler{
 		// Auth
@@ -313,9 +314,12 @@ func NewApp(
 	for _, h := range patternWithHandlers {
 		handler.Handle(
 			h.method+" "+prefix+h.pattern,
-			api.HTTPErrorHandler(h.handler),
+			middlewares.HTTPErrorHandler(h.handler),
 		)
 	}
+
+	// WebSocket Connection Accept/Upgrade API
+	handler.HandleFunc("GET /", webSocketApi.WebSocketConnector)
 
 	return &App{
 		config:  config,
@@ -329,7 +333,7 @@ func (app *App) Start() error {
 		AllowedOrigins:   app.AllowedCrossOrigins,
 		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete},
 		AllowCredentials: true,
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowedHeaders:   []string{"*"},
 	})
 
 	// server

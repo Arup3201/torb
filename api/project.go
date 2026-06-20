@@ -14,6 +14,7 @@ import (
 	"github.com/Arup3201/torb/core/requests"
 	"github.com/Arup3201/torb/core/users"
 	"github.com/Arup3201/torb/notifications"
+	"github.com/Arup3201/torb/realtime"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -64,6 +65,7 @@ type UpdateJoinRequest struct {
 }
 
 type ProjectApi struct {
+	notifier            *realtime.WebSocketNotifier
 	projectService      *projects.ProjectService
 	userService         *users.UserService
 	memberService       *members.MemberService
@@ -79,6 +81,7 @@ func NewProjectApi(
 	notificationService *notifications.NotificationService,
 ) *ProjectApi {
 	return &ProjectApi{
+		notifier:            realtime.GlobalWebSocketNotifier(),
 		projectService:      projectService,
 		userService:         userService,
 		memberService:       memberService,
@@ -373,7 +376,7 @@ func (api *ProjectApi) AddJoinRequest(w http.ResponseWriter, r *http.Request) er
 		return fmt.Errorf("join request service create: %w", err)
 	}
 
-	err = api.notificationService.JoinRequested(
+	jsonData, receiver, err := api.notificationService.JoinRequested(
 		r.Context(),
 		projectID,
 		userID,
@@ -382,6 +385,7 @@ func (api *ProjectApi) AddJoinRequest(w http.ResponseWriter, r *http.Request) er
 		log.Printf("[ERROR] notification service JoinRequested: %s", err)
 	}
 
+	api.notifier.Notify(receiver, jsonData)
 	json.NewEncoder(w).Encode(HTTPSuccessResponse[any]{
 		Status:  RESPONSE_SUCCESS_STATUS,
 		Message: "Join request created",
@@ -460,7 +464,7 @@ func (api *ProjectApi) RespondToJoinRequest(w http.ResponseWriter, r *http.Reque
 		return fmt.Errorf("join request service respond: %w", err)
 	}
 
-	err = api.notificationService.JoinResponded(
+	data, receiver, err := api.notificationService.JoinResponded(
 		r.Context(),
 		projectID,
 		payload.UserID,
@@ -469,6 +473,8 @@ func (api *ProjectApi) RespondToJoinRequest(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		log.Printf("[ERROR] notification service JoinResponded: %s", err)
 	}
+
+	api.notifier.Notify(receiver, data)
 
 	json.NewEncoder(w).Encode(HTTPSuccessResponse[any]{
 		Status:  RESPONSE_SUCCESS_STATUS,
