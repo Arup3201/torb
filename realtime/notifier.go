@@ -28,7 +28,7 @@ func NewWebSocketClient(c *websocket.Conn) *WebSocketClient {
 		clientID:   uuid.NewString(),
 		send:       make(chan []byte, 10), // buffered
 		authTimer:  time.NewTimer(10 * time.Second),
-		timer:      time.NewTimer(time.Minute),
+		timer:      time.NewTimer(auth.ACCESS_TOKEN_DURATION_DEFAULT),
 	}
 }
 
