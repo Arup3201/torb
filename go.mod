@@ -10,7 +10,6 @@ require (
 	github.com/redis/go-redis/v9 v9.19.0
 	github.com/resend/resend-go/v3 v3.6.0
 	github.com/rs/cors v1.11.1
-	github.com/stillya/testcontainers-keycloak v0.3.6
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
