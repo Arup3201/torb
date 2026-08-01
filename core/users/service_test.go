@@ -73,6 +73,7 @@ func (suite *userServiceTestSuite) TestGet() {
 			Email:       email,
 			DisplayName: &dn,
 			AvatarURL:   &au,
+			Skills:      "C, Python",
 		})
 
 		u, err := suite.service.Get(suite.ctx, id)
@@ -81,6 +82,7 @@ func (suite *userServiceTestSuite) TestGet() {
 		suite.Require().Equal(id, u.ID)
 		suite.Require().Equal("alice-service", u.Username)
 		suite.Require().Equal("alice@svc.test", u.Email)
+		suite.Require().Equal("C, Python", u.Skills)
 		suite.Require().NotNil(u.DisplayName)
 		suite.Require().Equal(dn, *u.DisplayName)
 		suite.Require().NotNil(u.AvatarURL)
@@ -93,4 +95,38 @@ func (suite *userServiceTestSuite) TestGet() {
 		suite.Require().ErrorIs(err, core.ErrNotFound)
 	})
 	suite.Cleanup()
+}
+
+func (suite *userServiceTestSuite) TestProjectAndTaskCount() {
+	t := suite.T()
+
+	// 2 users, 3 projects, 4 tasks
+	// user 1 created 1 project
+	// user 2 created 2 projects
+	// user 1 is a member of the 2 projects created by user 2
+	// user 1 is assigned to 4 tasks part of project 1, 2 and 3
+	// 3 tasks are completed and 1 task is ongoing
+	u1 := suite.fixtures.InsertUser(fixtures.RandomUserRow())
+	u2 := suite.fixtures.InsertUser(fixtures.RandomUserRow())
+	p1 := suite.fixtures.InsertProject(fixtures.RandomProjectRow(u1))
+	p2 := suite.fixtures.InsertProject(fixtures.RandomProjectRow(u2))
+	p3 := suite.fixtures.InsertProject(fixtures.RandomProjectRow(u2))
+	suite.fixtures.InsertMember(fixtures.GetMemberRow(p2, u1, core.ROLE_MEMBER))
+	suite.fixtures.InsertMember(fixtures.GetMemberRow(p3, u1, core.ROLE_MEMBER))
+	p1t1 := suite.fixtures.InsertTask(fixtures.RandomTaskRow(p1, core.TASK_STATUS_COMPLETED))
+	p1t2 := suite.fixtures.InsertTask(fixtures.RandomTaskRow(p1, core.TASK_STATUS_COMPLETED))
+	p2t1 := suite.fixtures.InsertTask(fixtures.RandomTaskRow(p2, core.TASK_STATUS_COMPLETED))
+	p3t1 := suite.fixtures.InsertTask(fixtures.RandomTaskRow(p3, core.TASK_STATUS_ONGOING))
+	suite.fixtures.InsertAssignee(fixtures.GetAssigneeRow(p1, p1t1, u1))
+	suite.fixtures.InsertAssignee(fixtures.GetAssigneeRow(p1, p1t2, u1))
+	suite.fixtures.InsertAssignee(fixtures.GetAssigneeRow(p2, p2t1, u1))
+	suite.fixtures.InsertAssignee(fixtures.GetAssigneeRow(p3, p3t1, u1))
+
+	t.Run("should get 3 projects and 3 tasks", func(t *testing.T) {
+		res, err := suite.service.ProjectAndTaskCount(suite.ctx, u1)
+
+		suite.Require().NoError(err)
+		suite.Require().Equal(3, int(res.Projects))
+		suite.Require().Equal(3, int(res.Tasks))
+	})
 }

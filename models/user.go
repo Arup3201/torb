@@ -8,6 +8,7 @@ type User struct {
 	DisplayName   *string // nullable
 	Email         string  `gorm:"unique"`
 	AvatarURL     *string // nullable
+	Skills        string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	LastLoginTime time.Time

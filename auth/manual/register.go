@@ -77,7 +77,7 @@ func (s *RegisterService) CreateAccount(ctx context.Context,
 		userRepo := s.userRepo.WithTx(tx)
 		manualRepo := s.manualRepo.WithTx(tx)
 
-		userID, err = userRepo.Create(ctx, username, email, displayName, nil)
+		userID, err = userRepo.Create(ctx, username, email, "", displayName, nil)
 		if err != nil {
 			return fmt.Errorf("user repository create: %w", err)
 		}
