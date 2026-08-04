@@ -127,6 +127,7 @@ func (suite *userServiceTestSuite) TestProjectAndTaskCount() {
 
 		suite.Require().NoError(err)
 		suite.Require().Equal(3, int(res.Projects))
-		suite.Require().Equal(3, int(res.Tasks))
+		suite.Require().Equal(4, int(res.Tasks))
+		suite.Require().Equal(3, int(res.CompletedTasks))
 	})
 }

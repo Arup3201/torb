@@ -80,6 +80,23 @@ func (r *UserRepository) CountProjects(ctx context.Context,
 	return cnt, nil
 }
 
+func (r *UserRepository) CountTasks(ctx context.Context,
+	id string) (int64, error) {
+
+	var cnt int64
+	err := r.db.WithContext(ctx).
+		Table("tasks t").
+		Joins("INNER JOIN assignees as a ON t.id=a.task_id").
+		Where("a.user_id = ?", id).
+		Count(&cnt).
+		Error
+	if err != nil {
+		return -1, err
+	}
+
+	return cnt, nil
+}
+
 func (r *UserRepository) CountCompletedTasks(ctx context.Context,
 	id string) (int64, error) {
 

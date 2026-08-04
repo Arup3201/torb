@@ -19,8 +19,9 @@ type User struct {
 }
 
 type ProjectTaskCount struct {
-	Projects int64 `json:"projects"`
-	Tasks    int64 `json:"tasks"`
+	Projects       int64 `json:"projects"`
+	Tasks          int64 `json:"tasks"`
+	CompletedTasks int64 `json:"completed_tasks"`
 }
 
 type UserService struct {
@@ -62,13 +63,19 @@ func (s *UserService) ProjectAndTaskCount(ctx context.Context,
 		return nil, fmt.Errorf("user repository CountProjects: %w", err)
 	}
 
+	tasksCnt, err := s.userRepo.CountTasks(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("user repository CountTasks: %w", err)
+	}
+
 	completedTasksCnt, err := s.userRepo.CountCompletedTasks(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("user repository CountCompletedTasks: %w", err)
 	}
 
 	return &ProjectTaskCount{
-		Projects: projectsCnt,
-		Tasks:    completedTasksCnt,
+		Projects:       projectsCnt,
+		Tasks:          tasksCnt,
+		CompletedTasks: completedTasksCnt,
 	}, nil
 }

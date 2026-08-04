@@ -49,6 +49,10 @@ func (suite *userRepositoryTestSuite) SetupSuite() {
 	suite.fixtures = fixtures.New(suite.ctx, suite.db)
 }
 
+func (suite *userRepositoryTestSuite) TearDownSuite() {
+	suite.Require().NoError(suite.pgContainer.Terminate(suite.ctx))
+}
+
 func (suite *userRepositoryTestSuite) Cleanup() {
 	err := suite.db.WithContext(suite.ctx).
 		Exec("DELETE FROM users").Error
@@ -134,7 +138,7 @@ func (suite *userRepositoryTestSuite) TestGet() {
 	suite.Cleanup()
 }
 
-func (suite *userRepositoryTestSuite) TestCountProjectsAndCompletedTasks() {
+func (suite *userRepositoryTestSuite) TestCountProjectsTasksAndCompletedTasks() {
 	t := suite.T()
 
 	// 2 users, 3 projects, 4 tasks
@@ -165,7 +169,13 @@ func (suite *userRepositoryTestSuite) TestCountProjectsAndCompletedTasks() {
 		suite.Require().NoError(err)
 		suite.Require().Equal(3, int(cnt))
 	})
-	t.Run("should get 3 tasks", func(t *testing.T) {
+	t.Run("should get total 4 tasks", func(t *testing.T) {
+		cnt, err := suite.repo.CountTasks(suite.ctx, u1)
+
+		suite.Require().NoError(err)
+		suite.Require().Equal(4, int(cnt))
+	})
+	t.Run("should get 3 completed tasks", func(t *testing.T) {
 		cnt, err := suite.repo.CountCompletedTasks(suite.ctx, u1)
 
 		suite.Require().NoError(err)
