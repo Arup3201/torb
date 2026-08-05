@@ -131,6 +131,7 @@ func NewApp(
 		frontendHomeUrl,
 		frontendLoginUrl,
 	)
+	userApi := api.NewUserApi(userService)
 	projectApi := api.NewProjectApi(
 		projectService,
 		userService,
@@ -203,6 +204,12 @@ func NewApp(
 			method:  "POST",
 			pattern: "/auth/google/login",
 			handler: googleApi.Login,
+		},
+
+		{
+			method:  "GET",
+			pattern: "/profile",
+			handler: authenticator.IsAuthenticated(userApi.GetProfileSummary),
 		},
 
 		// List APIs
