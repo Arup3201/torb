@@ -52,16 +52,16 @@ func (r *UserRepository) Create(ctx context.Context,
 	return user.ID, nil
 }
 
-func (r *UserRepository) Get(ctx context.Context, id string) (models.User, error) {
+func (r *UserRepository) Get(ctx context.Context, id string) (*models.User, error) {
 
 	user, err := gorm.G[models.User](r.db).Where("id = ?", id).First(ctx)
 	if err == gorm.ErrRecordNotFound {
-		return user, core.ErrNotFound
+		return &user, core.ErrNotFound
 	} else if err != nil {
-		return user, fmt.Errorf("gorm query: %w", err)
+		return &user, fmt.Errorf("gorm query: %w", err)
 	}
 
-	return user, nil
+	return &user, nil
 }
 
 func (r *UserRepository) CountProjects(ctx context.Context,
@@ -112,4 +112,14 @@ func (r *UserRepository) CountCompletedTasks(ctx context.Context,
 	}
 
 	return cnt, nil
+}
+
+func (r *UserRepository) Update(ctx context.Context,
+	id string, user *models.User) error {
+
+	if err := r.db.Save(user).Error; err != nil {
+		return err
+	}
+
+	return nil
 }

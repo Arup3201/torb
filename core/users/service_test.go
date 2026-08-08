@@ -131,3 +131,42 @@ func (suite *userServiceTestSuite) TestProjectAndTaskCount() {
 		suite.Require().Equal(3, int(res.CompletedTasks))
 	})
 }
+
+func (suite *userServiceTestSuite) TestUpdateUser() {
+	t := suite.T()
+
+	userID := suite.fixtures.InsertUser(fixtures.RandomUserRow())
+
+	t.Run("should update username, displayname, skills and timestamp", func(t *testing.T) {
+		update := UpdateUserBody{
+			Username:    &[]string{"arupjana"}[0],
+			DisplayName: &[]string{"Arup Jana"}[0],
+			Skills:      &[]string{"C, Python"}[0],
+			Timestamp:   &[]string{"UTC+05:30"}[0],
+		}
+
+		err := suite.service.Update(suite.ctx, userID, update)
+
+		suite.Require().NoError(err)
+
+		user, err := gorm.G[models.User](suite.db).Where("id = ?", userID).First(suite.ctx)
+		suite.Require().NoError(err)
+		suite.Require().Equal("arupjana", user.Username)
+		suite.Require().Equal("Arup Jana", *user.DisplayName)
+		suite.Require().Equal("C, Python", user.Skills)
+		suite.Require().Equal("UTC+05:30", user.Timestamp)
+	})
+	t.Run("should update avatar url", func(t *testing.T) {
+		update := UpdateUserBody{
+			AvatarURL: &[]string{"https://content.google.com/avatar/arupjana"}[0],
+		}
+
+		err := suite.service.Update(suite.ctx, userID, update)
+
+		suite.Require().NoError(err)
+
+		user, err := gorm.G[models.User](suite.db).Where("id = ?", userID).First(suite.ctx)
+		suite.Require().NoError(err)
+		suite.Require().Equal("https://content.google.com/avatar/arupjana", *user.AvatarURL)
+	})
+}

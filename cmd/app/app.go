@@ -303,6 +303,11 @@ func NewApp(
 		// Update Instance APIs
 		{
 			method:  "PATCH",
+			pattern: "/users",
+			handler: authenticator.IsAuthenticated(userApi.UpdateProfile),
+		},
+		{
+			method:  "PATCH",
 			pattern: "/projects/{id}/join-requests",
 			handler: authenticator.IsAuthenticated(projectApi.RespondToJoinRequest),
 		},
