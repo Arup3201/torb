@@ -137,12 +137,12 @@ func (suite *userServiceTestSuite) TestUpdateUser() {
 
 	userID := suite.fixtures.InsertUser(fixtures.RandomUserRow())
 
-	t.Run("should update username, displayname, skills and timestamp", func(t *testing.T) {
+	t.Run("should update username, displayname, skills and timezone", func(t *testing.T) {
 		update := UpdateUserBody{
 			Username:    &[]string{"arupjana"}[0],
 			DisplayName: &[]string{"Arup Jana"}[0],
 			Skills:      &[]string{"C, Python"}[0],
-			Timestamp:   &[]string{"UTC+05:30"}[0],
+			Timezone:    &[]string{"UTC+05:30"}[0],
 		}
 
 		err := suite.service.Update(suite.ctx, userID, update)
@@ -154,7 +154,7 @@ func (suite *userServiceTestSuite) TestUpdateUser() {
 		suite.Require().Equal("arupjana", user.Username)
 		suite.Require().Equal("Arup Jana", *user.DisplayName)
 		suite.Require().Equal("C, Python", user.Skills)
-		suite.Require().Equal("UTC+05:30", user.Timestamp)
+		suite.Require().Equal("UTC+05:30", user.Timezone)
 	})
 	t.Run("should update avatar url", func(t *testing.T) {
 		update := UpdateUserBody{

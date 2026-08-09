@@ -18,7 +18,7 @@ type UserProfileSummary struct {
 	DisplayName    *string   `json:"display_name"`
 	AvatarURL      *string   `json:"avatar_url"`
 	Skills         string    `json:"skills"`
-	Timestamp      string    `json:"timestamp"`
+	Timezone       string    `json:"timezone"`
 	Projects       int64     `json:"projects"`
 	Tasks          int64     `json:"tasks"`
 	CompletedTasks int64     `json:"completed_tasks"`
@@ -31,7 +31,7 @@ type UpdateUserRequest struct {
 	DisplayName *string `json:"display_name"`
 	AvatarURL   *string `json:"avatar_url"`
 	Skills      *string `json:"skills"`
-	Timestamp   *string `json:"timestamp"`
+	Timezone    *string `json:"timezone"`
 }
 
 type UserApi struct {
@@ -72,7 +72,7 @@ func (api *UserApi) GetProfileSummary(w http.ResponseWriter, r *http.Request) er
 			DisplayName:    userData.DisplayName,
 			AvatarURL:      userData.AvatarURL,
 			Skills:         userData.Skills,
-			Timestamp:      userData.Timestamp,
+			Timezone:       userData.Timezone,
 			Projects:       userSummary.Projects,
 			Tasks:          userSummary.Tasks,
 			CompletedTasks: userSummary.CompletedTasks,
@@ -106,6 +106,11 @@ func (api *UserApi) UpdateProfile(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return fmt.Errorf("user service Update: %w", err)
 	}
+
+	json.NewEncoder(w).Encode(HTTPSuccessResponse[any]{
+		Status:  RESPONSE_SUCCESS_STATUS,
+		Message: "User data updated",
+	})
 
 	return nil
 }

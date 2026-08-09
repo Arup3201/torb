@@ -13,7 +13,7 @@ type User struct {
 	Email         string    `json:"email"`
 	AvatarURL     *string   `json:"avatar_url"` // nullable
 	Skills        string    `json:"skills"`
-	Timestamp     string    `json:"timestamp"`
+	Timezone      string    `json:"timezone"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	LastLoginTime time.Time `json:"-"`
@@ -30,7 +30,7 @@ type UpdateUserBody struct {
 	DisplayName *string
 	AvatarURL   *string
 	Skills      *string
-	Timestamp   *string
+	Timezone    *string
 }
 
 type UserService struct {
@@ -58,7 +58,7 @@ func (s *UserService) Get(ctx context.Context,
 		DisplayName:   user.DisplayName,
 		AvatarURL:     user.AvatarURL,
 		Skills:        user.Skills,
-		Timestamp:     user.Timestamp,
+		Timezone:      user.Timezone,
 		CreatedAt:     user.CreatedAt,
 		UpdatedAt:     user.UpdatedAt,
 		LastLoginTime: user.LastLoginTime,
@@ -110,15 +110,15 @@ func (s *UserService) Update(ctx context.Context,
 	if update.Skills != nil {
 		user.Skills = *update.Skills
 	}
-	if update.Timestamp != nil {
-		user.Timestamp = *update.Timestamp
+	if update.Timezone != nil {
+		user.Timezone = *update.Timezone
 	}
 
 	if update.Username != nil ||
 		update.DisplayName != nil ||
 		update.AvatarURL != nil ||
 		update.Skills != nil ||
-		update.Timestamp != nil {
+		update.Timezone != nil {
 		err = s.userRepo.Update(ctx, id, user)
 		if err != nil {
 			return fmt.Errorf("user repository Update: %w", err)

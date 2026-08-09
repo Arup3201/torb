@@ -125,7 +125,7 @@ func (suite *userRepositoryTestSuite) TestGet() {
 			Email:       "test@example.com",
 			DisplayName: &[]string{"Test"}[0],
 			Skills:      "C, Python",
-			Timestamp:   "UTC+05:30",
+			Timezone:    "UTC+05:30",
 		})
 
 		u, _ := suite.repo.Get(suite.ctx, id)
@@ -135,7 +135,7 @@ func (suite *userRepositoryTestSuite) TestGet() {
 		suite.Require().Equal("test@example.com", u.Email)
 		suite.Require().Equal("Test", *(u.DisplayName))
 		suite.Require().Equal("C, Python", u.Skills)
-		suite.Require().Equal("UTC+05:30", u.Timestamp)
+		suite.Require().Equal("UTC+05:30", u.Timezone)
 	})
 	suite.Cleanup()
 }
