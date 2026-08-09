@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Arup3201/torb/auth/manual"
+	"github.com/Arup3201/torb/auth/openid"
 	"github.com/Arup3201/torb/core"
 	"github.com/Arup3201/torb/core/users"
 	"github.com/go-playground/validator/v10"
@@ -19,6 +21,7 @@ type UserProfileSummary struct {
 	AvatarURL      *string   `json:"avatar_url"`
 	Skills         string    `json:"skills"`
 	Timezone       string    `json:"timezone"`
+	LoginMethod    string    `json:"login_method"`
 	Projects       int64     `json:"projects"`
 	Tasks          int64     `json:"tasks"`
 	CompletedTasks int64     `json:"completed_tasks"`
@@ -35,14 +38,20 @@ type UpdateUserRequest struct {
 }
 
 type UserApi struct {
-	userService *users.UserService
+	userService     *users.UserService
+	googleService   *openid.GoogleService
+	registerService *manual.RegisterService
 }
 
 func NewUserApi(
 	userService *users.UserService,
+	googleService *openid.GoogleService,
+	registerService *manual.RegisterService,
 ) *UserApi {
 	return &UserApi{
-		userService: userService,
+		userService:     userService,
+		googleService:   googleService,
+		registerService: registerService,
 	}
 }
 
@@ -63,6 +72,25 @@ func (api *UserApi) GetProfileSummary(w http.ResponseWriter, r *http.Request) er
 		return fmt.Errorf("user service ProjectAndTaskCount: %w", err)
 	}
 
+	hasManualAccount, err := api.registerService.HasAccount(r.Context(), userID)
+	if err != nil {
+		return fmt.Errorf("register service HasAccount: %w", err)
+	}
+
+	hasGoogleAccount, err := api.googleService.HasAccount(r.Context(), userID)
+	if err != nil {
+		return fmt.Errorf("google service HasAccount: %w", err)
+	}
+
+	var loginMethod string
+	if hasManualAccount && hasGoogleAccount {
+		loginMethod = "both"
+	} else if hasGoogleAccount {
+		loginMethod = "google"
+	} else if hasManualAccount {
+		loginMethod = "password"
+	}
+
 	json.NewEncoder(w).Encode(HTTPSuccessResponse[UserProfileSummary]{
 		Status: RESPONSE_SUCCESS_STATUS,
 		Data: &UserProfileSummary{
@@ -73,6 +101,7 @@ func (api *UserApi) GetProfileSummary(w http.ResponseWriter, r *http.Request) er
 			AvatarURL:      userData.AvatarURL,
 			Skills:         userData.Skills,
 			Timezone:       userData.Timezone,
+			LoginMethod:    loginMethod, // password / google / both
 			Projects:       userSummary.Projects,
 			Tasks:          userSummary.Tasks,
 			CompletedTasks: userSummary.CompletedTasks,

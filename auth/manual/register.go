@@ -114,3 +114,14 @@ func (s *RegisterService) GetUserID(ctx context.Context,
 
 	return account.UserID, nil
 }
+
+func (s *RegisterService) HasAccount(ctx context.Context,
+	id string) (bool, error) {
+
+	hasAccount, err := s.manualRepo.Exists(ctx, id)
+	if err != nil {
+		return false, err
+	}
+
+	return hasAccount, nil
+}

@@ -202,3 +202,14 @@ func (s *GoogleService) ValidToken(ctx context.Context,
 
 	return nil
 }
+
+func (s *GoogleService) HasAccount(ctx context.Context,
+	id string) (bool, error) {
+
+	hasAccount, err := s.oauthRepo.Exists(ctx, id)
+	if err != nil {
+		return false, err
+	}
+
+	return hasAccount, nil
+}

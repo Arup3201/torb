@@ -131,7 +131,7 @@ func NewApp(
 		frontendHomeUrl,
 		frontendLoginUrl,
 	)
-	userApi := api.NewUserApi(userService)
+	userApi := api.NewUserApi(userService, googleService, registerService)
 	projectApi := api.NewProjectApi(
 		projectService,
 		userService,

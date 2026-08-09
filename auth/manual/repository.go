@@ -2,6 +2,7 @@ package manual
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -125,4 +126,17 @@ func (r *ManualAccountRepository) UpdatePassword(ctx context.Context,
 	}
 
 	return nil
+}
+
+func (r *ManualAccountRepository) Exists(ctx context.Context,
+	userID string) (bool, error) {
+
+	_, err := gorm.G[models.ManualAccount](r.db).Where("user_id = ?", userID).First(ctx)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("gorm query: %w", err)
+	}
+
+	return true, nil
 }
