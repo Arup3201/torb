@@ -211,7 +211,16 @@ func NewApp(
 			pattern: "/profile",
 			handler: authenticator.IsAuthenticated(userApi.GetProfileSummary),
 		},
-
+		{
+			method:  "POST",
+			pattern: "/profile/add-password",
+			handler: authenticator.IsAuthenticated(userApi.CreatePasswordAccount),
+		},
+		{
+			method:  "GET",
+			pattern: "/profile/connect-google",
+			handler: googleApi.ConnectGoogleAccountCallback,
+		},
 		// List APIs
 		{
 			method:  "GET",

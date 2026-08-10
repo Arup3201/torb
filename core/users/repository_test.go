@@ -140,6 +140,36 @@ func (suite *userRepositoryTestSuite) TestGet() {
 	suite.Cleanup()
 }
 
+func (suite *userRepositoryTestSuite) TestGetByEmail() {
+	t := suite.T()
+
+	t.Run("should get by email", func(t *testing.T) {
+		id := suite.fixtures.InsertUser(models.User{
+			Username:    "test",
+			Email:       "test@example.com",
+			DisplayName: &[]string{"Test"}[0],
+			Skills:      "C, Python",
+			Timezone:    "UTC+05:30",
+		})
+
+		u, _ := suite.repo.GetByEmail(suite.ctx, "test@example.com")
+
+		suite.Require().Equal(id, u.ID)
+		suite.Require().Equal("test", u.Username)
+		suite.Require().Equal("test@example.com", u.Email)
+		suite.Require().Equal("Test", *(u.DisplayName))
+		suite.Require().Equal("C, Python", u.Skills)
+		suite.Require().Equal("UTC+05:30", u.Timezone)
+	})
+	t.Run("should get error with invalid email", func(t *testing.T) {
+		_, err := suite.repo.GetByEmail(suite.ctx, "invalid email")
+
+		suite.Cleanup()
+
+		suite.Require().Error(err)
+	})
+}
+
 func (suite *userRepositoryTestSuite) TestCountProjectsTasksAndCompletedTasks() {
 	t := suite.T()
 

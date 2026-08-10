@@ -64,6 +64,19 @@ func (r *UserRepository) Get(ctx context.Context, id string) (*models.User, erro
 	return &user, nil
 }
 
+func (r *UserRepository) GetByEmail(ctx context.Context,
+	email string) (*models.User, error) {
+
+	user, err := gorm.G[models.User](r.db).Where("email = ?", email).First(ctx)
+	if err == gorm.ErrRecordNotFound {
+		return &user, core.ErrNotFound
+	} else if err != nil {
+		return &user, fmt.Errorf("gorm query: %w", err)
+	}
+
+	return &user, nil
+}
+
 func (r *UserRepository) CountProjects(ctx context.Context,
 	id string) (int64, error) {
 

@@ -213,3 +213,30 @@ func (s *GoogleService) HasAccount(ctx context.Context,
 
 	return hasAccount, nil
 }
+
+func (s *GoogleService) CallbackForExistingUser(ctx context.Context,
+	state, code string) error {
+
+	userInfo, err := s.getUserInfo(ctx, state, code)
+	if err != nil {
+		return fmt.Errorf("get user information in callback: %w", err)
+	}
+
+	user, err := s.userRepo.GetByEmail(ctx, userInfo.Email)
+	if err != nil {
+		return fmt.Errorf("get user by email: %w", err)
+	}
+
+	err = s.oauthRepo.Create(
+		ctx,
+		userInfo.Subject,
+		OAUTH_PROVIDER_GOOGLE,
+		user.ID,
+		user.Email,
+	)
+	if err != nil {
+		return fmt.Errorf("create oauth account in database: %w", err)
+	}
+
+	return nil
+}

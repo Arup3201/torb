@@ -37,6 +37,10 @@ type UpdateUserRequest struct {
 	Timezone    *string `json:"timezone"`
 }
 
+type CreatePasswordAccountRequest struct {
+	Password string `json:"password"`
+}
+
 type UserApi struct {
 	userService     *users.UserService
 	googleService   *openid.GoogleService
@@ -139,6 +143,37 @@ func (api *UserApi) UpdateProfile(w http.ResponseWriter, r *http.Request) error 
 	json.NewEncoder(w).Encode(HTTPSuccessResponse[any]{
 		Status:  RESPONSE_SUCCESS_STATUS,
 		Message: "User data updated",
+	})
+
+	return nil
+}
+
+func (api *UserApi) CreatePasswordAccount(w http.ResponseWriter, r *http.Request) error {
+
+	var payload CreatePasswordAccountRequest
+
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&payload); err != nil {
+		return fmt.Errorf("payload decode: %w", core.ErrInvalidValue)
+	}
+	if err := validator.New().Struct(payload); err != nil {
+		return fmt.Errorf("payload validation: %w", core.ErrInvalidValue)
+	}
+
+	userID, err := GetUserID(r)
+	if err != nil {
+		return fmt.Errorf("get user Id: %w", err)
+	}
+
+	err = api.registerService.AddPassword(r.Context(), userID, payload.Password)
+	if err != nil {
+		return fmt.Errorf("add password service: %w", err)
+	}
+
+	json.NewEncoder(w).Encode(HTTPSuccessResponse[any]{
+		Status:  RESPONSE_SUCCESS_STATUS,
+		Message: "User can now login using this password",
 	})
 
 	return nil
