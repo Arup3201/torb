@@ -105,6 +105,7 @@ func NewApp(
 		config.GoogleClientID,
 		config.GoogleClientSecret,
 		config.GoogleRedirectURI,
+		config.GoogleConnectRedirectURI,
 		txManager,
 		userRepo,
 		oauthRepo,
@@ -218,7 +219,12 @@ func NewApp(
 		},
 		{
 			method:  "GET",
-			pattern: "/profile/connect-google",
+			pattern: "/profile/google/redirect",
+			handler: googleApi.Redirect2,
+		},
+		{
+			method:  "GET",
+			pattern: "/profile/google/callback",
 			handler: googleApi.ConnectGoogleAccountCallback,
 		},
 		// List APIs
