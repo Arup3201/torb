@@ -84,7 +84,7 @@ func (suite *userRepositoryTestSuite) TestCreate() {
 		u, err := gorm.G[models.User](suite.db).Where("id = ?", id).First(suite.ctx)
 		suite.Require().NoError(err)
 		suite.Require().Equal(dn, *u.DisplayName)
-		suite.Require().Equal(au, *u.AvatarURL)
+		suite.Require().Equal(au, *u.AvatarKey)
 	})
 	t.Run("should get duplicate value error with same username", func(t *testing.T) {
 		suite.repo.Create(suite.ctx, "alice3", "alice3@test.com", "", nil, nil)

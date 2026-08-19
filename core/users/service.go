@@ -3,7 +3,13 @@ package users
 import (
 	"context"
 	"fmt"
+	"mime/multipart"
 	"time"
+
+	"github.com/Arup3201/torb/core/documents"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/google/uuid"
 )
 
 type User struct {
@@ -11,7 +17,7 @@ type User struct {
 	Username      string    `json:"username"`
 	DisplayName   *string   `json:"display_name"` // nullable
 	Email         string    `json:"email"`
-	AvatarURL     *string   `json:"avatar_url"` // nullable
+	AvatarKey     *string   `json:"avatar_url"` // nullable
 	Skills        string    `json:"skills"`
 	Timezone      string    `json:"timezone"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -28,18 +34,25 @@ type ProjectTaskCount struct {
 type UpdateUserBody struct {
 	Username    *string
 	DisplayName *string
-	AvatarURL   *string
+	AvatarKey   *string
 	Skills      *string
 	Timezone    *string
 }
 
 type UserService struct {
-	userRepo *UserRepository
+	userRepo     *UserRepository
+	documentRepo *documents.DocumentRepository
+	s3Client     *s3.Client
 }
 
-func NewUserService(userRepo *UserRepository) *UserService {
+func NewUserService(
+	userRepo *UserRepository,
+	docRepo *documents.DocumentRepository,
+	s3Client *s3.Client) *UserService {
 	return &UserService{
-		userRepo: userRepo,
+		userRepo:     userRepo,
+		documentRepo: docRepo,
+		s3Client:     s3Client,
 	}
 }
 
@@ -56,7 +69,7 @@ func (s *UserService) Get(ctx context.Context,
 		Username:      user.Username,
 		Email:         user.Email,
 		DisplayName:   user.DisplayName,
-		AvatarURL:     user.AvatarURL,
+		AvatarKey:     user.AvatarKey,
 		Skills:        user.Skills,
 		Timezone:      user.Timezone,
 		CreatedAt:     user.CreatedAt,
@@ -104,8 +117,8 @@ func (s *UserService) Update(ctx context.Context,
 	if update.DisplayName != nil {
 		user.DisplayName = update.DisplayName
 	}
-	if update.AvatarURL != nil {
-		user.AvatarURL = update.AvatarURL
+	if update.AvatarKey != nil {
+		user.AvatarKey = update.AvatarKey
 	}
 	if update.Skills != nil {
 		user.Skills = *update.Skills
@@ -116,13 +129,47 @@ func (s *UserService) Update(ctx context.Context,
 
 	if update.Username != nil ||
 		update.DisplayName != nil ||
-		update.AvatarURL != nil ||
+		update.AvatarKey != nil ||
 		update.Skills != nil ||
 		update.Timezone != nil {
 		err = s.userRepo.Update(ctx, id, user)
 		if err != nil {
 			return fmt.Errorf("user repository Update: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func (s *UserService) UploadAvatar(ctx context.Context,
+	userID string,
+	avatar multipart.File,
+	filename, fileContentType string,
+	size uint, // Bytes
+) error {
+
+	avatarFileKey := fmt.Sprintf("users/%s/avatars/%s", userID, filename)
+	_, err := s.s3Client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String("torb"),
+		Key:         aws.String(avatarFileKey),
+		Body:        avatar,
+		ContentType: aws.String(fileContentType),
+	})
+	if err != nil {
+		return err
+	}
+
+	id := uuid.NewString()
+	err = s.documentRepo.Create(ctx, id, avatarFileKey, "avatar", fileContentType, size)
+	if err != nil {
+		return err
+	}
+
+	err = s.Update(ctx, userID, UpdateUserBody{
+		AvatarKey: &avatarFileKey,
+	})
+	if err != nil {
+		return err
 	}
 
 	return nil

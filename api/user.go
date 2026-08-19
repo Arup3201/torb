@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Arup3201/torb/auth/manual"
@@ -18,7 +19,7 @@ type UserProfileSummary struct {
 	Username       string    `json:"username"`
 	Email          string    `json:"email"`
 	DisplayName    *string   `json:"display_name"`
-	AvatarURL      *string   `json:"avatar_url"`
+	AvatarKey      *string   `json:"avatar_url"`
 	Skills         string    `json:"skills"`
 	Timezone       string    `json:"timezone"`
 	LoginMethod    string    `json:"login_method"`
@@ -32,7 +33,7 @@ type UserProfileSummary struct {
 type UpdateUserRequest struct {
 	Username    *string `json:"username"`
 	DisplayName *string `json:"display_name"`
-	AvatarURL   *string `json:"avatar_url"`
+	AvatarKey   *string `json:"avatar_url"`
 	Skills      *string `json:"skills"`
 	Timezone    *string `json:"timezone"`
 }
@@ -102,7 +103,7 @@ func (api *UserApi) GetProfileSummary(w http.ResponseWriter, r *http.Request) er
 			Username:       userData.Username,
 			Email:          userData.Email,
 			DisplayName:    userData.DisplayName,
-			AvatarURL:      userData.AvatarURL,
+			AvatarKey:      userData.AvatarKey,
 			Skills:         userData.Skills,
 			Timezone:       userData.Timezone,
 			LoginMethod:    loginMethod, // password / google / both
@@ -174,6 +175,39 @@ func (api *UserApi) CreatePasswordAccount(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(HTTPSuccessResponse[any]{
 		Status:  RESPONSE_SUCCESS_STATUS,
 		Message: "User can now login using this password",
+	})
+
+	return nil
+}
+
+func (api *UserApi) UploadAvatar(w http.ResponseWriter, r *http.Request) error {
+
+	file, header, err := r.FormFile("avatar")
+	if err != nil {
+		return fmt.Errorf("avatar is required: %w", err)
+	}
+
+	userID, err := GetUserID(r)
+	if err != nil {
+		return fmt.Errorf("get user Id: %w", err)
+	}
+
+	contentType := header.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "image/") {
+		return fmt.Errorf("avatar should be an image: %w", core.ErrInvalidValue)
+	}
+
+	err = api.userService.UploadAvatar(
+		r.Context(),
+		userID, file, header.Filename, contentType,
+		uint(header.Size))
+	if err != nil {
+		return fmt.Errorf("user service upload avatar: %w", err)
+	}
+
+	json.NewEncoder(w).Encode(HTTPSuccessResponse[any]{
+		Status:  RESPONSE_SUCCESS_STATUS,
+		Message: "User avatar uploaded",
 	})
 
 	return nil

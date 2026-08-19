@@ -7,7 +7,7 @@ type User struct {
 	Username      string  `gorm:"index:idx_username,unique"`
 	DisplayName   *string // nullable
 	Email         string  `gorm:"unique"`
-	AvatarURL     *string // nullable
+	AvatarKey     *string // S3 Key, nullable
 	Skills        string
 	Timezone      string
 	CreatedAt     time.Time

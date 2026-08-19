@@ -28,7 +28,7 @@ func (r *UserRepository) WithTx(tx *gorm.DB) *UserRepository {
 func (r *UserRepository) Create(ctx context.Context,
 	username, email string,
 	skills string,
-	displayName, avatarUrl *string) (string, error) {
+	displayName, avatarKey *string) (string, error) {
 
 	id := uuid.NewString()
 	user := models.User{
@@ -36,7 +36,7 @@ func (r *UserRepository) Create(ctx context.Context,
 		Username:    username,
 		Email:       email,
 		DisplayName: displayName,
-		AvatarURL:   avatarUrl,
+		AvatarKey:   avatarKey,
 		Skills:      skills,
 	}
 

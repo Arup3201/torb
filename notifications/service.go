@@ -214,7 +214,7 @@ func (s *NotificationService) TaskUpdated(ctx context.Context,
 			Username:    updater.Username,
 			DisplayName: updater.DisplayName,
 			Email:       updater.Email,
-			AvatarURL:   updater.AvatarURL,
+			AvatarURL:   updater.AvatarKey,
 		},
 	}
 	body, _ := json.Marshal(taskUpdatedData)
@@ -297,7 +297,7 @@ func (s *NotificationService) AssigneeUpdated(ctx context.Context,
 			Username:    assignee.Username,
 			DisplayName: assignee.DisplayName,
 			Email:       assignee.Email,
-			AvatarURL:   assignee.AvatarURL,
+			AvatarURL:   assignee.AvatarKey,
 		},
 	}
 	body, _ := json.Marshal(taskAssignedData)
@@ -364,7 +364,7 @@ func (s *NotificationService) JoinRequested(ctx context.Context,
 			Username:    requestor.Username,
 			DisplayName: requestor.DisplayName,
 			Email:       requestor.Email,
-			AvatarURL:   requestor.AvatarURL,
+			AvatarURL:   requestor.AvatarKey,
 		},
 	}
 	body, _ := json.Marshal(data)
@@ -416,7 +416,7 @@ func (s *NotificationService) JoinResponded(ctx context.Context,
 			Username:    responder.Username,
 			DisplayName: responder.DisplayName,
 			Email:       responder.Email,
-			AvatarURL:   responder.AvatarURL,
+			AvatarURL:   responder.AvatarKey,
 		},
 		Status: status,
 	}
@@ -477,7 +477,7 @@ func (s *NotificationService) CommentAdded(ctx context.Context,
 			Username:    commenter.Username,
 			DisplayName: commenter.DisplayName,
 			Email:       commenter.Email,
-			AvatarURL:   commenter.AvatarURL,
+			AvatarURL:   commenter.AvatarKey,
 		},
 	}
 	body, _ := json.Marshal(commentAddedData)

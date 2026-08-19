@@ -49,7 +49,7 @@ func (suite *userServiceTestSuite) SetupSuite() {
 	}
 
 	repo := NewUserRepository(suite.db)
-	suite.service = NewUserService(repo)
+	suite.service = NewUserService(repo, nil, nil)
 
 	suite.fixtures = fixtures.New(suite.ctx, suite.db)
 }
@@ -72,7 +72,7 @@ func (suite *userServiceTestSuite) TestGet() {
 			Username:    username,
 			Email:       email,
 			DisplayName: &dn,
-			AvatarURL:   &au,
+			AvatarKey:   &au,
 			Skills:      "C, Python",
 		})
 
@@ -85,8 +85,8 @@ func (suite *userServiceTestSuite) TestGet() {
 		suite.Require().Equal("C, Python", u.Skills)
 		suite.Require().NotNil(u.DisplayName)
 		suite.Require().Equal(dn, *u.DisplayName)
-		suite.Require().NotNil(u.AvatarURL)
-		suite.Require().Equal(au, *u.AvatarURL)
+		suite.Require().NotNil(u.AvatarKey)
+		suite.Require().Equal(au, *u.AvatarKey)
 	})
 
 	t.Run("should return not found for invalid id", func(t *testing.T) {
@@ -158,7 +158,7 @@ func (suite *userServiceTestSuite) TestUpdateUser() {
 	})
 	t.Run("should update avatar url", func(t *testing.T) {
 		update := UpdateUserBody{
-			AvatarURL: &[]string{"https://content.google.com/avatar/arupjana"}[0],
+			AvatarKey: &[]string{"avatar/arupjana"}[0],
 		}
 
 		err := suite.service.Update(suite.ctx, userID, update)
@@ -167,6 +167,6 @@ func (suite *userServiceTestSuite) TestUpdateUser() {
 
 		user, err := gorm.G[models.User](suite.db).Where("id = ?", userID).First(suite.ctx)
 		suite.Require().NoError(err)
-		suite.Require().Equal("https://content.google.com/avatar/arupjana", *user.AvatarURL)
+		suite.Require().Equal("avatar/arupjana", *user.AvatarKey)
 	})
 }
