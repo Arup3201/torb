@@ -41,16 +41,18 @@ type GoogleUserInfo struct {
 }
 
 type GoogleService struct {
-	config      *oauth2.Config
-	txManager   *core.TxManager
-	userRepo    *users.UserRepository
-	oauthRepo   *OauthRepository
-	stringStore *StringStore
+	config                     *oauth2.Config
+	txManager                  *core.TxManager
+	userRepo                   *users.UserRepository
+	oauthRepo                  *OauthRepository
+	stringStore                *StringStore
+	redirectURI1, redirectURI2 string
 }
 
 func NewGoogleService(
 	clientID, clientSecret string,
-	redirectURI string,
+	redirectURI1 string,
+	redirectURI2 string,
 	txManager *core.TxManager,
 	userRepo *users.UserRepository,
 	oauthRepo *OauthRepository,
@@ -62,15 +64,16 @@ func NewGoogleService(
 		ClientSecret: clientSecret,
 		Scopes:       []string{"openid", "profile", "email"},
 		Endpoint:     google.Endpoint,
-		RedirectURL:  redirectURI,
 	}
 
 	return &GoogleService{
-		config:      conf,
-		txManager:   txManager,
-		userRepo:    userRepo,
-		oauthRepo:   oauthRepo,
-		stringStore: stringStore,
+		config:       conf,
+		txManager:    txManager,
+		userRepo:     userRepo,
+		oauthRepo:    oauthRepo,
+		stringStore:  stringStore,
+		redirectURI1: redirectURI1,
+		redirectURI2: redirectURI2,
 	}
 }
 
@@ -86,6 +89,7 @@ func (s *GoogleService) GetAuthCodeURL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("string store Store: %w", err)
 	}
+	s.config.RedirectURL = s.redirectURI1
 	url := s.config.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier))
 	return url, nil
 }
@@ -113,6 +117,7 @@ func (s *GoogleService) Callback(ctx context.Context,
 				ctx,
 				username,
 				userInfo.Email,
+				"",
 				&userInfo.Name,
 				nil,
 			)
@@ -197,6 +202,61 @@ func (s *GoogleService) ValidToken(ctx context.Context,
 	_, err := s.stringStore.Get(ctx, getTokenKey(token))
 	if err != nil {
 		return core.ErrInvalidValue
+	}
+
+	return nil
+}
+
+func (s *GoogleService) HasAccount(ctx context.Context,
+	id string) (bool, error) {
+
+	hasAccount, err := s.oauthRepo.Exists(ctx, id)
+	if err != nil {
+		return false, err
+	}
+
+	return hasAccount, nil
+}
+
+func (s *GoogleService) GetConnectURL(ctx context.Context) (string, error) {
+
+	state, _ := auth.GetRandomToken(32)
+	err := s.stringStore.Store(ctx, getStateKey(state), state, 1*time.Minute)
+	if err != nil {
+		return "", fmt.Errorf("string store Store: %w", err)
+	}
+	verifier := oauth2.GenerateVerifier()
+	err = s.stringStore.Store(ctx, getVerifierKey(state), verifier, 1*time.Minute)
+	if err != nil {
+		return "", fmt.Errorf("string store Store: %w", err)
+	}
+	s.config.RedirectURL = s.redirectURI2
+	url := s.config.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier))
+	return url, nil
+}
+
+func (s *GoogleService) ConnectCallback(ctx context.Context,
+	state, code string) error {
+
+	userInfo, err := s.getUserInfo(ctx, state, code)
+	if err != nil {
+		return fmt.Errorf("get user information in callback: %w", err)
+	}
+
+	user, err := s.userRepo.GetByEmail(ctx, userInfo.Email)
+	if err != nil {
+		return fmt.Errorf("get user by email: %w", err)
+	}
+
+	err = s.oauthRepo.Create(
+		ctx,
+		userInfo.Subject,
+		OAUTH_PROVIDER_GOOGLE,
+		user.ID,
+		user.Email,
+	)
+	if err != nil {
+		return fmt.Errorf("create oauth account in database: %w", err)
 	}
 
 	return nil

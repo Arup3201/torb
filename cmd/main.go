@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -9,6 +10,8 @@ import (
 	"os"
 
 	"github.com/Arup3201/torb/cmd/app"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -71,12 +74,19 @@ func main() {
 		log.Fatalf("rsa generate key: %s\n", err)
 	}
 
+	cfg, err := awsConfig.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		log.Fatal(err)
+	}
+	s3Client := s3.NewFromConfig(cfg)
+
 	app := app.NewApp(
 		API_ROOT,
 		config,
 		db,
 		redis,
 		privateKey,
+		s3Client,
 		FRONTEND_URL+FRONTEND_LOGIN_PATH,
 		FRONTEND_URL+FRONTEND_VERIFY_PATH,
 		FRONTEND_URL+FRONTEND_RESET_PATH,

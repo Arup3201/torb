@@ -124,7 +124,7 @@ VRE5pSFPQliu
 		txManager,
 		projectRepo,
 		memberRepo)
-	userService := users.NewUserService(userRepo)
+	userService := users.NewUserService(userRepo, nil, nil)
 	memberService := members.NewMemberService(memberRepo)
 	joinService := requests.NewJoinRequestService(
 		txManager,

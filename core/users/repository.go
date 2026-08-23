@@ -27,7 +27,8 @@ func (r *UserRepository) WithTx(tx *gorm.DB) *UserRepository {
 
 func (r *UserRepository) Create(ctx context.Context,
 	username, email string,
-	displayName, avatarUrl *string) (string, error) {
+	skills string,
+	displayName, avatarKey *string) (string, error) {
 
 	id := uuid.NewString()
 	user := models.User{
@@ -35,7 +36,8 @@ func (r *UserRepository) Create(ctx context.Context,
 		Username:    username,
 		Email:       email,
 		DisplayName: displayName,
-		AvatarURL:   avatarUrl,
+		AvatarKey:   avatarKey,
+		Skills:      skills,
 	}
 
 	err := gorm.G[models.User](r.db).Create(ctx, &user)
@@ -50,14 +52,87 @@ func (r *UserRepository) Create(ctx context.Context,
 	return user.ID, nil
 }
 
-func (r *UserRepository) Get(ctx context.Context, id string) (models.User, error) {
+func (r *UserRepository) Get(ctx context.Context, id string) (*models.User, error) {
 
 	user, err := gorm.G[models.User](r.db).Where("id = ?", id).First(ctx)
 	if err == gorm.ErrRecordNotFound {
-		return user, core.ErrNotFound
+		return &user, core.ErrNotFound
 	} else if err != nil {
-		return user, fmt.Errorf("gorm query: %w", err)
+		return &user, fmt.Errorf("gorm query: %w", err)
 	}
 
-	return user, nil
+	return &user, nil
+}
+
+func (r *UserRepository) GetByEmail(ctx context.Context,
+	email string) (*models.User, error) {
+
+	user, err := gorm.G[models.User](r.db).Where("email = ?", email).First(ctx)
+	if err == gorm.ErrRecordNotFound {
+		return &user, core.ErrNotFound
+	} else if err != nil {
+		return &user, fmt.Errorf("gorm query: %w", err)
+	}
+
+	return &user, nil
+}
+
+func (r *UserRepository) CountProjects(ctx context.Context,
+	id string) (int64, error) {
+
+	var cnt int64
+	err := r.db.WithContext(ctx).
+		Table("members").
+		Where("user_id = ?", id).
+		Count(&cnt).
+		Error
+	if err != nil {
+		return -1, err
+	}
+
+	return cnt, nil
+}
+
+func (r *UserRepository) CountTasks(ctx context.Context,
+	id string) (int64, error) {
+
+	var cnt int64
+	err := r.db.WithContext(ctx).
+		Table("tasks t").
+		Joins("INNER JOIN assignees as a ON t.id=a.task_id").
+		Where("a.user_id = ?", id).
+		Count(&cnt).
+		Error
+	if err != nil {
+		return -1, err
+	}
+
+	return cnt, nil
+}
+
+func (r *UserRepository) CountCompletedTasks(ctx context.Context,
+	id string) (int64, error) {
+
+	var cnt int64
+	err := r.db.WithContext(ctx).
+		Table("tasks t").
+		Joins("INNER JOIN assignees as a ON t.id=a.task_id").
+		Where("a.user_id = ? AND t.status = ?", id, core.TASK_STATUS_COMPLETED).
+		Count(&cnt).
+		Error
+	if err != nil {
+		return -1, err
+	}
+
+	return cnt, nil
+}
+
+func (r *UserRepository) Update(ctx context.Context,
+	id string, user *models.User) error {
+
+	if err := r.db.Save(user).Error; err != nil {
+		return err
+	}
+
+	return nil
 }

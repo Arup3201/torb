@@ -21,6 +21,7 @@ func Migrate(db *gorm.DB) error {
 		&models.Member{},
 		&models.Comment{},
 		&models.Notification{},
+		&models.S3Document{},
 	)
 	if err != nil {
 		return fmt.Errorf("gorm db auto migrate: %w", err)

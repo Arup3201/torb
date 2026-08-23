@@ -13,6 +13,7 @@ import (
 	"github.com/Arup3201/torb/core"
 	"github.com/Arup3201/torb/core/assignees"
 	"github.com/Arup3201/torb/core/comments"
+	"github.com/Arup3201/torb/core/documents"
 	"github.com/Arup3201/torb/core/members"
 	"github.com/Arup3201/torb/core/projects"
 	"github.com/Arup3201/torb/core/requests"
@@ -20,6 +21,7 @@ import (
 	"github.com/Arup3201/torb/core/users"
 	"github.com/Arup3201/torb/middlewares"
 	"github.com/Arup3201/torb/notifications"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/redis/go-redis/v9"
 	"github.com/resend/resend-go/v3"
 	"github.com/rs/cors"
@@ -47,6 +49,7 @@ func NewApp(
 	db *gorm.DB,
 	redis *redis.Client,
 	privateKey *rsa.PrivateKey,
+	s3Client *s3.Client,
 	frontendLoginUrl string,
 	frontendVerifyUrl string,
 	frontendResetUrl string,
@@ -59,6 +62,7 @@ func NewApp(
 	accountRepo := manual.NewManualAccountRepository(db)
 	oauthRepo := openid.NewOauthRepository(db)
 	userRepo := users.NewUserRepository(db)
+	docRepo := documents.NewDocumentRepository(db)
 	assigneeRepo := assignees.NewAssigneeRepository(db)
 	commentRepo := comments.NewCommentRepository(db)
 	projectRepo := projects.NewProjectRepository(db)
@@ -74,7 +78,7 @@ func NewApp(
 		joinRepo,
 		memberRepo,
 	)
-	userService := users.NewUserService(userRepo)
+	userService := users.NewUserService(userRepo, docRepo, s3Client)
 	assigneeService := assignees.NewAssigneeService(
 		memberRepo,
 		assigneeRepo)
@@ -105,6 +109,7 @@ func NewApp(
 		config.GoogleClientID,
 		config.GoogleClientSecret,
 		config.GoogleRedirectURI,
+		config.GoogleConnectRedirectURI,
 		txManager,
 		userRepo,
 		oauthRepo,
@@ -131,6 +136,7 @@ func NewApp(
 		frontendHomeUrl,
 		frontendLoginUrl,
 	)
+	userApi := api.NewUserApi(userService, googleService, registerService)
 	projectApi := api.NewProjectApi(
 		projectService,
 		userService,
@@ -205,6 +211,31 @@ func NewApp(
 			handler: googleApi.Login,
 		},
 
+		{
+			method:  "GET",
+			pattern: "/profile",
+			handler: authenticator.IsAuthenticated(userApi.GetProfileSummary),
+		},
+		{
+			method:  "POST",
+			pattern: "/profile/avatar",
+			handler: authenticator.IsAuthenticated(userApi.UploadAvatar),
+		},
+		{
+			method:  "POST",
+			pattern: "/profile/add-password",
+			handler: authenticator.IsAuthenticated(userApi.CreatePasswordAccount),
+		},
+		{
+			method:  "GET",
+			pattern: "/profile/google/redirect",
+			handler: googleApi.Redirect2,
+		},
+		{
+			method:  "GET",
+			pattern: "/profile/google/callback",
+			handler: googleApi.ConnectGoogleAccountCallback,
+		},
 		// List APIs
 		{
 			method:  "GET",
@@ -294,6 +325,11 @@ func NewApp(
 			handler: authenticator.IsAuthenticated(taskApi.AddComment),
 		},
 		// Update Instance APIs
+		{
+			method:  "PATCH",
+			pattern: "/users",
+			handler: authenticator.IsAuthenticated(userApi.UpdateProfile),
+		},
 		{
 			method:  "PATCH",
 			pattern: "/projects/{id}/join-requests",

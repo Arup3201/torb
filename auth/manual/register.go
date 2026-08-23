@@ -2,6 +2,7 @@ package manual
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -77,7 +78,7 @@ func (s *RegisterService) CreateAccount(ctx context.Context,
 		userRepo := s.userRepo.WithTx(tx)
 		manualRepo := s.manualRepo.WithTx(tx)
 
-		userID, err = userRepo.Create(ctx, username, email, displayName, nil)
+		userID, err = userRepo.Create(ctx, username, email, "", displayName, nil)
 		if err != nil {
 			return fmt.Errorf("user repository create: %w", err)
 		}
@@ -113,4 +114,45 @@ func (s *RegisterService) GetUserID(ctx context.Context,
 	}
 
 	return account.UserID, nil
+}
+
+func (s *RegisterService) HasAccount(ctx context.Context,
+	id string) (bool, error) {
+
+	hasAccount, err := s.manualRepo.Exists(ctx, id)
+	if err != nil {
+		return false, err
+	}
+
+	return hasAccount, nil
+}
+
+func (s *RegisterService) AddPassword(ctx context.Context,
+	id, password string) error {
+
+	hasAccount, err := s.manualRepo.Exists(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if hasAccount {
+		return errors.New("user already has an account")
+	}
+
+	user, err := s.userRepo.Get(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get user: %w", err)
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), s.PasswordGenerateCost)
+	if err != nil {
+		return fmt.Errorf("bcrypt generate from password: %w", err)
+	}
+
+	err = s.manualRepo.Create(ctx, id, user.Email, hashedPassword, true)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

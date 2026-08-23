@@ -6,10 +6,11 @@ import (
 )
 
 type Config struct {
-	Host, Port                                            string
-	DBHost, DBPort, DBPass, DBUser, DBName                string
-	ResendApiKey                                          string
-	GoogleClientID, GoogleClientSecret, GoogleRedirectURI string
+	Host, Port                             string
+	DBHost, DBPort, DBPass, DBUser, DBName string
+	ResendApiKey                           string
+	GoogleClientID, GoogleClientSecret,
+	GoogleRedirectURI, GoogleConnectRedirectURI string
 }
 
 func (c *Config) LoadFromEnv() error {
@@ -57,6 +58,10 @@ func (c *Config) LoadFromEnv() error {
 	c.GoogleRedirectURI = os.Getenv(ENV_GOOGLE_REDIRECT_URI)
 	if c.GoogleRedirectURI == "" {
 		return fmt.Errorf("environment variable '%s' missing", ENV_GOOGLE_REDIRECT_URI)
+	}
+	c.GoogleConnectRedirectURI = os.Getenv(ENV_GOOGLE_CONNECT_REDIRECT_URI)
+	if c.GoogleConnectRedirectURI == "" {
+		return fmt.Errorf("environment variable '%s' missing", ENV_GOOGLE_CONNECT_REDIRECT_URI)
 	}
 
 	return nil

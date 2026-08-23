@@ -54,3 +54,16 @@ func (r *OauthRepository) Get(ctx context.Context,
 
 	return acc, nil
 }
+
+func (r *OauthRepository) Exists(ctx context.Context,
+	userID string) (bool, error) {
+
+	_, err := gorm.G[models.OauthAccount](r.db).Where("user_id = ?", userID).First(ctx)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("gorm query: %w", err)
+	}
+
+	return true, nil
+}

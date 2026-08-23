@@ -175,3 +175,59 @@ func (api *GoogleApi) Login(w http.ResponseWriter, r *http.Request) error {
 
 	return nil
 }
+
+func (api *GoogleApi) Redirect2(w http.ResponseWriter, r *http.Request) error {
+
+	url, err := api.googleService.GetConnectURL(r.Context())
+	if err != nil {
+		return fmt.Errorf("google service GetConnectURL: %w", err)
+	}
+
+	json.NewEncoder(w).Encode(HTTPSuccessResponse[string]{
+		Status: RESPONSE_SUCCESS_STATUS,
+		Data:   &url,
+	})
+
+	return nil
+}
+
+func (api *GoogleApi) ConnectGoogleAccountCallback(w http.ResponseWriter, r *http.Request) error {
+
+	redirectURL := api.frontendHomeURL + "profile"
+
+	errParam := r.URL.Query().Get("error")
+	if errParam != "" {
+		http.Redirect(w, r, redirectURL+"?error="+errParam, http.StatusSeeOther)
+		return nil
+	}
+
+	state := r.URL.Query().Get("state")
+	code := r.URL.Query().Get("code")
+
+	if state == "" {
+		http.Redirect(w, r, redirectURL+"?error=missing_state", http.StatusSeeOther)
+		return nil
+	}
+
+	if code == "" {
+		http.Redirect(w, r, redirectURL+"?error=missing_auth_code", http.StatusSeeOther)
+		return nil
+	}
+
+	err := api.googleService.ConnectCallback(
+		r.Context(),
+		state,
+		code,
+	)
+	if err != nil {
+		log.Printf("[ERROR] google service ConnectCallback: %s\n", err)
+		http.Redirect(w, r, redirectURL+"?error=server_error", http.StatusSeeOther)
+		return nil
+	}
+
+	http.Redirect(w, r,
+		redirectURL,
+		http.StatusSeeOther)
+
+	return nil
+}
