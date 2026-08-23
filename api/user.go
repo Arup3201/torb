@@ -19,7 +19,7 @@ type UserProfileSummary struct {
 	Username       string    `json:"username"`
 	Email          string    `json:"email"`
 	DisplayName    *string   `json:"display_name"`
-	AvatarKey      *string   `json:"avatar_url"`
+	AvatarURL      *string   `json:"avatar_url"`
 	Skills         string    `json:"skills"`
 	Timezone       string    `json:"timezone"`
 	LoginMethod    string    `json:"login_method"`
@@ -103,7 +103,7 @@ func (api *UserApi) GetProfileSummary(w http.ResponseWriter, r *http.Request) er
 			Username:       userData.Username,
 			Email:          userData.Email,
 			DisplayName:    userData.DisplayName,
-			AvatarKey:      userData.AvatarKey,
+			AvatarURL:      userData.AvatarURL,
 			Skills:         userData.Skills,
 			Timezone:       userData.Timezone,
 			LoginMethod:    loginMethod, // password / google / both

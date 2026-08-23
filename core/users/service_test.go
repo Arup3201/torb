@@ -67,7 +67,7 @@ func (suite *userServiceTestSuite) TestGet() {
 		username := "alice-service"
 		email := "alice@svc.test"
 		dn := "Alice"
-		au := "http://avatar"
+		au := "/users/02d4cef0-c789-4899-bbe0-bcc79743fe41/avatars/avatar.jpg"
 		id := suite.fixtures.InsertUser(models.User{
 			Username:    username,
 			Email:       email,
@@ -85,8 +85,8 @@ func (suite *userServiceTestSuite) TestGet() {
 		suite.Require().Equal("C, Python", u.Skills)
 		suite.Require().NotNil(u.DisplayName)
 		suite.Require().Equal(dn, *u.DisplayName)
-		suite.Require().NotNil(u.AvatarKey)
-		suite.Require().Equal(au, *u.AvatarKey)
+		suite.Require().NotNil(u.AvatarURL)
+		suite.Require().Equal(au, *u.AvatarURL)
 	})
 
 	t.Run("should return not found for invalid id", func(t *testing.T) {
@@ -158,7 +158,7 @@ func (suite *userServiceTestSuite) TestUpdateUser() {
 	})
 	t.Run("should update avatar url", func(t *testing.T) {
 		update := UpdateUserBody{
-			AvatarKey: &[]string{"avatar/arupjana"}[0],
+			AvatarKey: &[]string{"/users/02d4cef0-c789-4899-bbe0-bcc79743fe41/avatars/avatar.jpg"}[0],
 		}
 
 		err := suite.service.Update(suite.ctx, userID, update)
@@ -167,6 +167,6 @@ func (suite *userServiceTestSuite) TestUpdateUser() {
 
 		user, err := gorm.G[models.User](suite.db).Where("id = ?", userID).First(suite.ctx)
 		suite.Require().NoError(err)
-		suite.Require().Equal("avatar/arupjana", *user.AvatarKey)
+		suite.Require().Equal("/users/02d4cef0-c789-4899-bbe0-bcc79743fe41/avatars/avatar.jpg", *user.AvatarKey)
 	})
 }
