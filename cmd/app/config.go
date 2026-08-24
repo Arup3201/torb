@@ -53,10 +53,7 @@ func (c *Config) LoadFromEnv() error {
 	if c.RedisPort == "" {
 		return fmt.Errorf("environment variable '%s' missing", ENV_REDIS_PORT)
 	}
-	c.RedisPass = os.Getenv(ENV_REDIS_PASS)
-	if c.RedisPass == "" {
-		return fmt.Errorf("environment variable '%s' missing", ENV_REDIS_PASS)
-	}
+	c.RedisPass = os.Getenv(ENV_REDIS_PASS) // could be empty
 
 	c.ResendApiKey = os.Getenv(ENV_RESEND_API_KEY)
 	if c.ResendApiKey == "" {
