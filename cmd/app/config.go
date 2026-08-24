@@ -8,9 +8,11 @@ import (
 type Config struct {
 	Host, Port                             string
 	DBHost, DBPort, DBPass, DBUser, DBName string
+	RedisHost, RedisPort, RedisPass        string
 	ResendApiKey                           string
 	GoogleClientID, GoogleClientSecret,
 	GoogleRedirectURI, GoogleConnectRedirectURI string
+	FrontendURL string
 }
 
 func (c *Config) LoadFromEnv() error {
@@ -42,6 +44,20 @@ func (c *Config) LoadFromEnv() error {
 	if c.DBName == "" {
 		return fmt.Errorf("environment variable '%s' missing", ENV_DB_NAME)
 	}
+
+	c.RedisHost = os.Getenv(ENV_REDIS_HOST)
+	if c.RedisHost == "" {
+		return fmt.Errorf("environment variable '%s' missing", ENV_REDIS_HOST)
+	}
+	c.RedisPort = os.Getenv(ENV_REDIS_PORT)
+	if c.RedisPort == "" {
+		return fmt.Errorf("environment variable '%s' missing", ENV_REDIS_PORT)
+	}
+	c.RedisPass = os.Getenv(ENV_REDIS_PASS)
+	if c.RedisPass == "" {
+		return fmt.Errorf("environment variable '%s' missing", ENV_REDIS_PASS)
+	}
+
 	c.ResendApiKey = os.Getenv(ENV_RESEND_API_KEY)
 	if c.ResendApiKey == "" {
 		return fmt.Errorf("environment variable '%s' missing", ENV_RESEND_API_KEY)
@@ -62,6 +78,11 @@ func (c *Config) LoadFromEnv() error {
 	c.GoogleConnectRedirectURI = os.Getenv(ENV_GOOGLE_CONNECT_REDIRECT_URI)
 	if c.GoogleConnectRedirectURI == "" {
 		return fmt.Errorf("environment variable '%s' missing", ENV_GOOGLE_CONNECT_REDIRECT_URI)
+	}
+
+	c.FrontendURL = os.Getenv(ENV_FRONTEND_URL)
+	if c.FrontendURL == "" {
+		return fmt.Errorf("environment variable '%s' missing", ENV_FRONTEND_URL)
 	}
 
 	return nil

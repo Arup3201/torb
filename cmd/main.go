@@ -18,9 +18,7 @@ import (
 )
 
 const (
-	REDIS_ADDR           = "127.0.0.1:6379"
 	API_ROOT             = "/api/v1"
-	FRONTEND_URL         = "http://localhost:5173"
 	FRONTEND_LOGIN_PATH  = "/login"
 	FRONTEND_VERIFY_PATH = "/verify-email"
 	FRONTEND_RESET_PATH  = "/reset-password"
@@ -63,8 +61,8 @@ func main() {
 	app.Migrate(db)
 
 	redis := redis.NewClient(&redis.Options{
-		Addr:     REDIS_ADDR,
-		Password: "",
+		Addr:     fmt.Sprintf("%s:%s", config.RedisHost, config.RedisPort),
+		Password: config.RedisPass,
 		DB:       0,
 		Protocol: 2,
 	})
@@ -87,12 +85,12 @@ func main() {
 		redis,
 		privateKey,
 		s3Client,
-		FRONTEND_URL+FRONTEND_LOGIN_PATH,
-		FRONTEND_URL+FRONTEND_VERIFY_PATH,
-		FRONTEND_URL+FRONTEND_RESET_PATH,
-		FRONTEND_URL+FRONTEND_HOME_PATH,
+		config.FrontendURL+FRONTEND_LOGIN_PATH,
+		config.FrontendURL+FRONTEND_VERIFY_PATH,
+		config.FrontendURL+FRONTEND_RESET_PATH,
+		config.FrontendURL+FRONTEND_HOME_PATH,
 	)
-	app.AllowedCrossOrigins = []string{FRONTEND_URL}
+	app.AllowedCrossOrigins = []string{config.FrontendURL}
 	err = app.Start()
 	if err != nil {
 		fmt.Printf("[ERROR] app start: %s", err)
