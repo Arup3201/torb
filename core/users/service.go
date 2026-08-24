@@ -17,7 +17,7 @@ type User struct {
 	Username      string    `json:"username"`
 	DisplayName   *string   `json:"display_name"` // nullable
 	Email         string    `json:"email"`
-	AvatarKey     *string   `json:"avatar_url"` // nullable
+	AvatarURL     *string   `json:"avatar_url"` // nullable
 	Skills        string    `json:"skills"`
 	Timezone      string    `json:"timezone"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -40,19 +40,23 @@ type UpdateUserBody struct {
 }
 
 type UserService struct {
-	userRepo     *UserRepository
-	documentRepo *documents.DocumentRepository
-	s3Client     *s3.Client
+	userRepo        *UserRepository
+	documentRepo    *documents.DocumentRepository
+	s3Client        *s3.Client
+	s3PresignClient *s3.PresignClient
 }
 
 func NewUserService(
 	userRepo *UserRepository,
 	docRepo *documents.DocumentRepository,
 	s3Client *s3.Client) *UserService {
+
+	presignClient := s3.NewPresignClient(s3Client)
 	return &UserService{
-		userRepo:     userRepo,
-		documentRepo: docRepo,
-		s3Client:     s3Client,
+		userRepo:        userRepo,
+		documentRepo:    docRepo,
+		s3Client:        s3Client,
+		s3PresignClient: presignClient,
 	}
 }
 
@@ -61,7 +65,12 @@ func (s *UserService) Get(ctx context.Context,
 
 	user, err := s.userRepo.Get(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("user repository get: %w", err)
+		return nil, err
+	}
+
+	avatarUrl, err := s.getAvatarURL(ctx, user.AvatarKey)
+	if err != nil {
+		return nil, err
 	}
 
 	return &User{
@@ -69,13 +78,33 @@ func (s *UserService) Get(ctx context.Context,
 		Username:      user.Username,
 		Email:         user.Email,
 		DisplayName:   user.DisplayName,
-		AvatarKey:     user.AvatarKey,
+		AvatarURL:     &avatarUrl,
 		Skills:        user.Skills,
 		Timezone:      user.Timezone,
 		CreatedAt:     user.CreatedAt,
 		UpdatedAt:     user.UpdatedAt,
 		LastLoginTime: user.LastLoginTime,
 	}, nil
+}
+
+func (s *UserService) getAvatarURL(ctx context.Context,
+	key *string) (string, error) {
+
+	if key == nil {
+		return "", nil
+	}
+
+	res, err := s.s3PresignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String("torb"),
+		Key:    key,
+	}, func(po *s3.PresignOptions) {
+		po.Expires = 15 * time.Minute
+	})
+	if err != nil {
+		return "", fmt.Errorf("s3 PresignGetObject: %w", err)
+	}
+
+	return res.URL, nil
 }
 
 func (s *UserService) ProjectAndTaskCount(ctx context.Context,
