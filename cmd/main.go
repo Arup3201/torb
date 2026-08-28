@@ -33,6 +33,10 @@ func readRSAPrivateKey(filename string) (*rsa.PrivateKey, error) {
 	}
 
 	block, _ := pem.Decode(bytes)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block")
+	}
+
 	parseResult, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("x509 parse pkce#1 private key: %w", err)
@@ -79,7 +83,7 @@ func main() {
 		log.Fatalf("redis connection failed: %s", err)
 	}
 
-	privateKey, err := readRSAPrivateKey("private.key")
+	privateKey, err := readRSAPrivateKey(config.PrivateKeyPath)
 	if err != nil {
 		log.Fatalf("rsa generate key: %s\n", err)
 	}

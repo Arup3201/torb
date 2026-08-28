@@ -7,6 +7,7 @@ import (
 
 type Config struct {
 	Host, Port                                           string
+	PrivateKeyPath                                       string
 	DBHost, DBPort, DBPass, DBUser, DBName               string
 	RedisHost, RedisPort, RedisUser, RedisPass, RedisTLS string
 	ResendApiKey                                         string
@@ -23,6 +24,10 @@ func (c *Config) LoadFromEnv() error {
 	c.Port = os.Getenv(ENV_PORT)
 	if c.Port == "" {
 		return fmt.Errorf("environment variable '%s' missing", ENV_PORT)
+	}
+	c.PrivateKeyPath = os.Getenv(ENV_PRIVATE_KEY_PATH)
+	if c.PrivateKeyPath == "" {
+		return fmt.Errorf("environment variable '%s' missing", ENV_PRIVATE_KEY_PATH)
 	}
 	c.DBHost = os.Getenv(ENV_DB_HOST)
 	if c.DBHost == "" {

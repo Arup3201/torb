@@ -4,6 +4,7 @@ package app
 const (
 	ENV_HOST                        = "HOST"
 	ENV_PORT                        = "PORT"
+	ENV_PRIVATE_KEY_PATH            = "PRIVATE_KEY_PATH"
 	ENV_DB_HOST                     = "DB_HOST"
 	ENV_DB_PORT                     = "DB_PORT"
 	ENV_DB_USER                     = "DB_USER"
