@@ -16,7 +16,9 @@ const (
 	ENV_GOOGLE_CONNECT_REDIRECT_URI = "GOOGLE_CONNECT_REDIRECT_URI"
 	ENV_REDIS_HOST                  = "REDIS_HOST"
 	ENV_REDIS_PORT                  = "REDIS_PORT"
+	ENV_REDIS_USER                  = "REDIS_USER"
 	ENV_REDIS_PASS                  = "REDIS_PASS"
+	ENV_REDIS_TLS                   = "REDIS_TLS"
 	ENV_FRONTEND_URL                = "FRONTEND_URL"
 )
 

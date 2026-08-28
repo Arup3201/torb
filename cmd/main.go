@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -43,6 +44,7 @@ func readRSAPrivateKey(filename string) (*rsa.PrivateKey, error) {
 
 func main() {
 	var err error
+	ctx := context.Background()
 
 	config := &app.Config{}
 	err = config.LoadFromEnv()
@@ -60,19 +62,29 @@ func main() {
 
 	app.Migrate(db)
 
-	redis := redis.NewClient(&redis.Options{
+	rdsOptions := &redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", config.RedisHost, config.RedisPort),
+		Username: config.RedisUser,
 		Password: config.RedisPass,
 		DB:       0,
 		Protocol: 2,
-	})
+	}
+	if config.RedisTLS == "true" {
+		rdsOptions.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+	}
+	redis := redis.NewClient(rdsOptions)
+	if err := redis.Ping(ctx).Err(); err != nil {
+		log.Fatalf("redis connection failed: %s", err)
+	}
 
 	privateKey, err := readRSAPrivateKey("private.key")
 	if err != nil {
 		log.Fatalf("rsa generate key: %s\n", err)
 	}
 
-	cfg, err := awsConfig.LoadDefaultConfig(context.TODO())
+	cfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}

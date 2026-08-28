@@ -6,10 +6,10 @@ import (
 )
 
 type Config struct {
-	Host, Port                             string
-	DBHost, DBPort, DBPass, DBUser, DBName string
-	RedisHost, RedisPort, RedisPass        string
-	ResendApiKey                           string
+	Host, Port                                           string
+	DBHost, DBPort, DBPass, DBUser, DBName               string
+	RedisHost, RedisPort, RedisUser, RedisPass, RedisTLS string
+	ResendApiKey                                         string
 	GoogleClientID, GoogleClientSecret,
 	GoogleRedirectURI, GoogleConnectRedirectURI string
 	FrontendURL string
@@ -53,7 +53,9 @@ func (c *Config) LoadFromEnv() error {
 	if c.RedisPort == "" {
 		return fmt.Errorf("environment variable '%s' missing", ENV_REDIS_PORT)
 	}
+	c.RedisUser = os.Getenv(ENV_REDIS_USER) // could be empty
 	c.RedisPass = os.Getenv(ENV_REDIS_PASS) // could be empty
+	c.RedisTLS = os.Getenv(ENV_REDIS_TLS)   // could be empty
 
 	c.ResendApiKey = os.Getenv(ENV_RESEND_API_KEY)
 	if c.ResendApiKey == "" {
