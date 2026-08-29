@@ -10,6 +10,7 @@ type Config struct {
 	PrivateKeyPath                                       string
 	DBHost, DBPort, DBPass, DBUser, DBName               string
 	RedisHost, RedisPort, RedisUser, RedisPass, RedisTLS string
+	AWSRegion, AWSAccessKeyID, AWSSecretAccessKey        string
 	ResendApiKey                                         string
 	GoogleClientID, GoogleClientSecret,
 	GoogleRedirectURI, GoogleConnectRedirectURI string
@@ -61,6 +62,10 @@ func (c *Config) LoadFromEnv() error {
 	c.RedisUser = os.Getenv(ENV_REDIS_USER) // could be empty
 	c.RedisPass = os.Getenv(ENV_REDIS_PASS) // could be empty
 	c.RedisTLS = os.Getenv(ENV_REDIS_TLS)   // could be empty
+
+	c.AWSRegion = os.Getenv(ENV_AWS_REGION)
+	c.AWSAccessKeyID = os.Getenv(ENV_AWS_ACCESS_KEY_ID)
+	c.AWSSecretAccessKey = os.Getenv(ENV_AWS_SECRET_ACCESS_KEY)
 
 	c.ResendApiKey = os.Getenv(ENV_RESEND_API_KEY)
 	if c.ResendApiKey == "" {

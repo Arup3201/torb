@@ -20,6 +20,9 @@ const (
 	ENV_REDIS_USER                  = "REDIS_USER"
 	ENV_REDIS_PASS                  = "REDIS_PASS"
 	ENV_REDIS_TLS                   = "REDIS_TLS"
+	ENV_AWS_REGION                  = "AWS_REGION"
+	ENV_AWS_ACCESS_KEY_ID           = "AWS_ACCESS_KEY_ID"
+	ENV_AWS_SECRET_ACCESS_KEY       = "AWS_SECRET_ACCESS_KEY"
 	ENV_FRONTEND_URL                = "FRONTEND_URL"
 )
 

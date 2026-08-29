@@ -11,7 +11,9 @@ import (
 	"os"
 
 	"github.com/Arup3201/torb/cmd/app"
-	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
@@ -44,6 +46,29 @@ func readRSAPrivateKey(filename string) (*rsa.PrivateKey, error) {
 
 	privateKey := parseResult.(*rsa.PrivateKey)
 	return privateKey, nil
+}
+
+func loadAWSConfig(ctx context.Context, conf *app.Config) (aws.Config, error) {
+	if conf.AWSAccessKeyID == "" || conf.AWSSecretAccessKey == "" {
+		return aws.Config{}, fmt.Errorf("AWS credentials are not configured")
+	}
+
+	cfg, err := config.LoadDefaultConfig(
+		ctx,
+		config.WithRegion(conf.AWSRegion),
+		config.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(
+				conf.AWSAccessKeyID,
+				conf.AWSSecretAccessKey,
+				"",
+			),
+		),
+	)
+	if err != nil {
+		return aws.Config{}, fmt.Errorf("load AWS config: %w", err)
+	}
+
+	return cfg, nil
 }
 
 func main() {
@@ -88,10 +113,7 @@ func main() {
 		log.Fatalf("rsa generate key: %s\n", err)
 	}
 
-	cfg, err := awsConfig.LoadDefaultConfig(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
+	cfg, err := loadAWSConfig(ctx, config)
 	s3Client := s3.NewFromConfig(cfg)
 
 	app := app.NewApp(
