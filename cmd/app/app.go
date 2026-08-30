@@ -366,8 +366,15 @@ func NewApp(
 func (app *App) Start() error {
 
 	cors := cors.New(cors.Options{
-		AllowedOrigins:   app.AllowedCrossOrigins,
-		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete},
+		AllowedOrigins: app.AllowedCrossOrigins,
+		AllowedMethods: []string{
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+			http.MethodOptions,
+		},
 		AllowCredentials: true,
 		AllowedHeaders:   []string{"*"},
 	})

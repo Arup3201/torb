@@ -151,7 +151,7 @@ func (api *GoogleApi) Login(w http.ResponseWriter, r *http.Request) error {
 		Expires:  refreshToken.ExpiresAt,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	}
 	http.SetCookie(w, cookie)
 

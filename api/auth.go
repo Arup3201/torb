@@ -358,7 +358,7 @@ func (api *AuthApi) Login(w http.ResponseWriter, r *http.Request) error {
 		Expires:  refreshToken.ExpiresAt,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	}
 	http.SetCookie(w, cookie)
 
@@ -441,7 +441,7 @@ func (api *AuthApi) Refresh(w http.ResponseWriter, r *http.Request) error {
 		Expires:  refreshToken.ExpiresAt,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	}
 	http.SetCookie(w, cookie)
 
@@ -494,7 +494,7 @@ func (api *AuthApi) Logout(w http.ResponseWriter, r *http.Request) error {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	}
 	http.SetCookie(w, cookie)
 
