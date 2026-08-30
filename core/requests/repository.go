@@ -20,7 +20,7 @@ type JoinRequestRow struct {
 	Username    string  `gorm:"column:requestor_username"`
 	DisplayName *string `gorm:"column:requestor_display_name"`
 	Email       string  `gorm:"column:requestor_email"`
-	AvatarURL   *string `gorm:"column:requestor_avatar_url"`
+	AvatarKey   *string `gorm:"column:requestor_avatar_key"`
 }
 
 type JoinRepository struct {
@@ -67,7 +67,7 @@ func (r *JoinRepository) List(ctx context.Context, projectID string) ([]JoinRequ
 				u.username as requestor_username, 
 				u.display_name as requestor_diplay_name, 
 				u.email as requestor_email, 
-				u.avatar_url as requestor_avatar_url`).
+				u.avatar_key as requestor_avatar_key`).
 		Joins("INNER JOIN users as u ON u.id=jr.user_id").
 		Where("jr.project_id = ?", projectID).
 		Scan(&rows).Error

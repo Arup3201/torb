@@ -6,11 +6,14 @@ import (
 	"testing"
 
 	"github.com/Arup3201/torb/core"
+	"github.com/Arup3201/torb/core/documents"
 	"github.com/Arup3201/torb/core/members"
 	"github.com/Arup3201/torb/models"
 	"github.com/Arup3201/torb/testdata"
 	"github.com/Arup3201/torb/testhelpers"
 	"github.com/Arup3201/torb/testhelpers/fixtures"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/suite"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -52,7 +55,13 @@ func (suite *joinServiceTestSuite) SetupSuite() {
 	txManager := core.NewTxManager(suite.db)
 	joinRepo := NewJoinRepository(suite.db)
 	memberRepo := members.NewMemberRepository(suite.db)
-	suite.service = NewJoinRequestService(txManager, joinRepo, memberRepo)
+
+	cfg, err := config.LoadDefaultConfig(suite.ctx)
+	suite.NoError(err)
+	s3Client := s3.NewFromConfig(cfg)
+	docStorage := documents.NewDocumentStorage(s3Client)
+
+	suite.service = NewJoinRequestService(txManager, joinRepo, memberRepo, docStorage)
 
 	suite.fixtures = fixtures.New(suite.ctx, suite.db)
 

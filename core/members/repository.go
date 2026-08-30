@@ -20,7 +20,7 @@ type MemberRow struct {
 	Username    string  `gorm:"column:member_username"`
 	DisplayName *string `gorm:"column:member_display_name"`
 	Email       string  `gorm:"column:member_email"`
-	AvatarURL   *string `gorm:"column:member_avatar_url"`
+	AvatarKey   *string `gorm:"column:member_avatar_key"`
 }
 
 type MemberRepository struct {
@@ -93,7 +93,7 @@ func (r *MemberRepository) List(ctx context.Context,
 				u.username as member_username, 
 				u.display_name as member_display_name, 
 				u.email as member_email, 
-				u.avatar_url as member_avatar_url`).
+				u.avatar_key as member_avatar_key`).
 		Joins("INNER JOIN users AS u ON m.user_id=u.id").
 		Where("m.project_id = ?", projectID).
 		Scan(&rows).Error

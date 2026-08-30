@@ -14,6 +14,7 @@ import (
 
 	"github.com/Arup3201/torb/auth"
 	"github.com/Arup3201/torb/core"
+	"github.com/Arup3201/torb/core/documents"
 	"github.com/Arup3201/torb/core/members"
 	"github.com/Arup3201/torb/core/projects"
 	"github.com/Arup3201/torb/core/requests"
@@ -25,6 +26,8 @@ import (
 	"github.com/Arup3201/torb/testdata"
 	"github.com/Arup3201/torb/testhelpers"
 	"github.com/Arup3201/torb/testhelpers/fixtures"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/redis/go-redis/v9"
@@ -124,12 +127,18 @@ VRE5pSFPQliu
 		txManager,
 		projectRepo,
 		memberRepo)
-	userService := users.NewUserService(userRepo, nil, nil)
-	memberService := members.NewMemberService(memberRepo)
+	docRepo := documents.NewDocumentRepository(db)
+	cfg, err := config.LoadDefaultConfig(ctx)
+	suite.NoError(err)
+	s3Client := s3.NewFromConfig(cfg)
+	docStorage := documents.NewDocumentStorage(s3Client)
+	userService := users.NewUserService(userRepo, docRepo, docStorage)
+	memberService := members.NewMemberService(memberRepo, docStorage)
 	joinService := requests.NewJoinRequestService(
 		txManager,
 		joinRepo,
 		memberRepo,
+		docStorage,
 	)
 	notificationService := notifications.NewNotificationService(
 		projectRepo,

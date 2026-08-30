@@ -71,20 +71,23 @@ func NewApp(
 	txManager := core.NewTxManager(db)
 	tokenStore := auth.NewTokenStore(redis)
 	stringStore := openid.NewStringStore(redis)
+	docStorage := documents.NewDocumentStorage(s3Client)
 
-	memberService := members.NewMemberService(memberRepo)
+	memberService := members.NewMemberService(memberRepo, docStorage)
 	joinService := requests.NewJoinRequestService(
 		txManager,
 		joinRepo,
 		memberRepo,
+		docStorage,
 	)
-	userService := users.NewUserService(userRepo, docRepo, s3Client)
+	userService := users.NewUserService(userRepo, docRepo, docStorage)
 	assigneeService := assignees.NewAssigneeService(
 		memberRepo,
 		assigneeRepo)
 	commentService := comments.NewCommentService(
 		commentRepo,
-		memberRepo)
+		memberRepo,
+		docStorage)
 	projectService := projects.NewProjectService(
 		txManager,
 		projectRepo,
@@ -93,6 +96,7 @@ func NewApp(
 		taskRepo,
 		memberRepo,
 		assigneeRepo,
+		docStorage,
 	)
 	notificationService := notifications.NewNotificationService(
 		projectRepo,

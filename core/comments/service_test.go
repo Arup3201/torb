@@ -6,10 +6,13 @@ import (
 	"testing"
 
 	"github.com/Arup3201/torb/core"
+	"github.com/Arup3201/torb/core/documents"
 	"github.com/Arup3201/torb/core/members"
 	"github.com/Arup3201/torb/testdata"
 	"github.com/Arup3201/torb/testhelpers"
 	"github.com/Arup3201/torb/testhelpers/fixtures"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/suite"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -52,7 +55,13 @@ func (suite *commentServiceTestSuite) SetupSuite() {
 
 	commentRepo := NewCommentRepository(suite.db)
 	memberRepo := members.NewMemberRepository(suite.db)
-	service := NewCommentService(commentRepo, memberRepo)
+
+	cfg, err := config.LoadDefaultConfig(suite.ctx)
+	suite.NoError(err)
+	s3Client := s3.NewFromConfig(cfg)
+	docStorage := documents.NewDocumentStorage(s3Client)
+
+	service := NewCommentService(commentRepo, memberRepo, docStorage)
 	suite.service = service
 
 	suite.fixtures = fixtures.New(suite.ctx, suite.db)

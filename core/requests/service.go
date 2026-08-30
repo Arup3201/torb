@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Arup3201/torb/core"
+	"github.com/Arup3201/torb/core/documents"
 	"github.com/Arup3201/torb/core/members"
 	"gorm.io/gorm"
 )
@@ -24,15 +25,18 @@ type JoinRequestService struct {
 	txManager  *core.TxManager
 	joinRepo   *JoinRepository
 	memberRepo *members.MemberRepository
+	docStorage *documents.DocumentStorage
 }
 
 func NewJoinRequestService(txManager *core.TxManager,
 	joinRepo *JoinRepository,
-	memberRepo *members.MemberRepository) *JoinRequestService {
+	memberRepo *members.MemberRepository,
+	docStorage *documents.DocumentStorage) *JoinRequestService {
 	return &JoinRequestService{
 		txManager:  txManager,
 		joinRepo:   joinRepo,
 		memberRepo: memberRepo,
+		docStorage: docStorage,
 	}
 }
 
@@ -77,6 +81,7 @@ func (s *JoinRequestService) List(ctx context.Context,
 
 	requests := []JoinRequest{}
 	for _, r := range rows {
+		url, _ := s.docStorage.GetObjectURL(ctx, r.AvatarKey, 15*time.Minute)
 		requests = append(requests, JoinRequest{
 			ProjectID: r.ProjectID,
 			Status:    r.Status.String,
@@ -87,7 +92,7 @@ func (s *JoinRequestService) List(ctx context.Context,
 				Username:    r.Username,
 				DisplayName: r.DisplayName,
 				Email:       r.Email,
-				AvatarURL:   r.AvatarURL,
+				AvatarURL:   &url,
 			},
 		})
 	}

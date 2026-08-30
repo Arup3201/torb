@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Arup3201/torb/core"
+	"github.com/Arup3201/torb/core/documents"
 	"github.com/Arup3201/torb/core/members"
 )
 
@@ -23,13 +24,17 @@ type Comment struct {
 type CommentService struct {
 	commentRepo *CommentRepository
 	memberRepo  *members.MemberRepository
+	docStorage  *documents.DocumentStorage
 }
 
-func NewCommentService(commentRepo *CommentRepository,
-	memberRepo *members.MemberRepository) *CommentService {
+func NewCommentService(
+	commentRepo *CommentRepository,
+	memberRepo *members.MemberRepository,
+	docStorage *documents.DocumentStorage) *CommentService {
 	return &CommentService{
 		commentRepo: commentRepo,
 		memberRepo:  memberRepo,
+		docStorage:  docStorage,
 	}
 }
 
@@ -73,6 +78,7 @@ func (s *CommentService) List(ctx context.Context,
 
 	comments := []Comment{}
 	for _, r := range rows {
+		url, _ := s.docStorage.GetObjectURL(ctx, r.AvatarKey, 15*time.Minute)
 		comments = append(comments, Comment{
 			ID:        r.ID,
 			ProjectID: r.ProjectID,
@@ -85,7 +91,7 @@ func (s *CommentService) List(ctx context.Context,
 				Username:    r.Username,
 				DisplayName: r.DisplayName,
 				Email:       r.Email,
-				AvatarURL:   r.AvatarURL,
+				AvatarURL:   &url,
 			},
 		})
 	}

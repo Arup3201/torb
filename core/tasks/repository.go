@@ -28,7 +28,7 @@ type AssigneeRow struct {
 	AssigneeUsername    string  `json:"assignee_username"`
 	AssigneeDisplayName *string `json:"assignee_display_name"`
 	AssigneeEmail       string  `json:"assignee_email"`
-	AssigneeAvatarURL   *string `json:"assignee_avatar_url"`
+	AssigneeAvatarKey   *string `json:"assignee_avatar_key"`
 }
 
 type ProjectTaskItemRow struct {
@@ -101,7 +101,7 @@ func (r *TaskRepository) Get(ctx context.Context, id string) (ProjectTaskItemRow
 					'assignee_username', u.username,
 					'assignee_display_name', u.display_name,
 					'assignee_email', u.email,
-					'assignee_avatar_url', u.avatar_url
+					'assignee_avatar_key', u.avatar_key
 				)
 				) FILTER (WHERE a.user_id IS NOT NULL),
 				'[]'
@@ -134,7 +134,7 @@ func (r *TaskRepository) List(ctx context.Context,
 				'assignee_username', u.username,
 				'assignee_display_name', u.display_name,
 				'assignee_email', u.email,
-				'assignee_avatar_url', u.avatar_url
+				'assignee_avatar_key', u.avatar_key
 			)
 			) FILTER (WHERE a.user_id IS NOT NULL),
 			'[]'

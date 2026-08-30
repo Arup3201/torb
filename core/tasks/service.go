@@ -9,6 +9,7 @@ import (
 
 	"github.com/Arup3201/torb/core"
 	"github.com/Arup3201/torb/core/assignees"
+	"github.com/Arup3201/torb/core/documents"
 	"github.com/Arup3201/torb/core/members"
 )
 
@@ -40,15 +41,18 @@ type TaskService struct {
 	taskRepo     *TaskRepository
 	memberRepo   *members.MemberRepository
 	assigneeRepo *assignees.AssigneeRepository
+	docStorage   *documents.DocumentStorage
 }
 
 func NewTaskService(taskRepo *TaskRepository,
 	memberRepo *members.MemberRepository,
-	assigneeRepo *assignees.AssigneeRepository) *TaskService {
+	assigneeRepo *assignees.AssigneeRepository,
+	docStorage *documents.DocumentStorage) *TaskService {
 	return &TaskService{
 		taskRepo:     taskRepo,
 		memberRepo:   memberRepo,
 		assigneeRepo: assigneeRepo,
+		docStorage:   docStorage,
 	}
 }
 
@@ -114,6 +118,7 @@ func (s *TaskService) List(ctx context.Context,
 			Assignees:   []assignees.Assignee{},
 		}
 		for _, assignee := range r.Assignees {
+			url, _ := s.docStorage.GetObjectURL(ctx, assignee.AssigneeAvatarKey, 15*time.Minute)
 			task.Assignees = append(task.Assignees, assignees.Assignee{
 				ProjectID: assignee.ProjectID,
 				TaskID:    assignee.TaskID,
@@ -124,7 +129,7 @@ func (s *TaskService) List(ctx context.Context,
 					Username:    assignee.AssigneeUsername,
 					DisplayName: assignee.AssigneeDisplayName,
 					Email:       assignee.AssigneeEmail,
-					AvatarURL:   assignee.AssigneeAvatarURL,
+					AvatarURL:   &url,
 				},
 			})
 		}
@@ -160,6 +165,7 @@ func (s *TaskService) Get(ctx context.Context,
 		Assignees:   []assignees.Assignee{},
 	}
 	for _, assignee := range row.Assignees {
+		url, _ := s.docStorage.GetObjectURL(ctx, assignee.AssigneeAvatarKey, 15*time.Minute)
 		task.Assignees = append(task.Assignees, assignees.Assignee{
 			ProjectID: assignee.ProjectID,
 			TaskID:    assignee.TaskID,
@@ -170,7 +176,7 @@ func (s *TaskService) Get(ctx context.Context,
 				Username:    assignee.AssigneeUsername,
 				DisplayName: assignee.AssigneeDisplayName,
 				Email:       assignee.AssigneeEmail,
-				AvatarURL:   assignee.AssigneeAvatarURL,
+				AvatarURL:   &url,
 			},
 		})
 	}

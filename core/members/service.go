@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Arup3201/torb/core"
+	"github.com/Arup3201/torb/core/documents"
 )
 
 type Member struct {
@@ -18,11 +19,14 @@ type Member struct {
 
 type MemberService struct {
 	memberRepo *MemberRepository
+	docStorage *documents.DocumentStorage
 }
 
-func NewMemberService(memberRepo *MemberRepository) *MemberService {
+func NewMemberService(memberRepo *MemberRepository,
+	docStorage *documents.DocumentStorage) *MemberService {
 	return &MemberService{
 		memberRepo: memberRepo,
+		docStorage: docStorage,
 	}
 }
 
@@ -65,6 +69,7 @@ func (s *MemberService) AllMembers(ctx context.Context,
 
 	members := []Member{}
 	for _, r := range rows {
+		url, _ := s.docStorage.GetObjectURL(ctx, r.AvatarKey, 15*time.Minute)
 		members = append(members, Member{
 			ProjectID: r.ProjectID,
 			Role:      r.Role.String,
@@ -75,7 +80,7 @@ func (s *MemberService) AllMembers(ctx context.Context,
 				Username:    r.Username,
 				Email:       r.Email,
 				DisplayName: r.DisplayName,
-				AvatarURL:   r.AvatarURL,
+				AvatarURL:   &url,
 			},
 		})
 	}
