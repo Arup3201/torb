@@ -22,7 +22,7 @@ type CommentRow struct {
 	Username    string  `gorm:"column:username"`
 	DisplayName *string `gorm:"column:display_name"`
 	Email       string  `gorm:"column:email"`
-	AvatarURL   *string `gorm:"column:avatar_url"`
+	AvatarKey   *string `gorm:"column:avatar_key"`
 }
 
 type CommentRepository struct {
@@ -70,7 +70,7 @@ func (r *CommentRepository) List(ctx context.Context,
 				u.username as username, 
 				u.display_name as display_name, 
 				u.email as email, 
-				u.avatar_url as avatar_url`).
+				u.avatar_key as avatar_key`).
 		Joins("INNER JOIN users as u ON u.id=c.user_id").
 		Where("c.project_id = ? AND c.task_id = ?", projectId, taskId).
 		Scan(&rows).Error

@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/Arup3201/torb/core/documents"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 )
 
@@ -34,29 +32,25 @@ type ProjectTaskCount struct {
 type UpdateUserBody struct {
 	Username    *string
 	DisplayName *string
-	AvatarKey   *string
 	Skills      *string
 	Timezone    *string
 }
 
 type UserService struct {
-	userRepo        *UserRepository
-	documentRepo    *documents.DocumentRepository
-	s3Client        *s3.Client
-	s3PresignClient *s3.PresignClient
+	userRepo       *UserRepository
+	documentRepo   *documents.DocumentRepository
+	documentStorge *documents.DocumentStorage
 }
 
 func NewUserService(
 	userRepo *UserRepository,
 	docRepo *documents.DocumentRepository,
-	s3Client *s3.Client) *UserService {
+	docStorage *documents.DocumentStorage) *UserService {
 
-	presignClient := s3.NewPresignClient(s3Client)
 	return &UserService{
-		userRepo:        userRepo,
-		documentRepo:    docRepo,
-		s3Client:        s3Client,
-		s3PresignClient: presignClient,
+		userRepo:       userRepo,
+		documentRepo:   docRepo,
+		documentStorge: docStorage,
 	}
 }
 
@@ -68,7 +62,9 @@ func (s *UserService) Get(ctx context.Context,
 		return nil, err
 	}
 
-	avatarUrl, err := s.getAvatarURL(ctx, user.AvatarKey)
+	avatarUrl, err := s.documentStorge.GetObjectURL(ctx,
+		user.AvatarKey,
+		15*time.Minute)
 	if err != nil {
 		return nil, err
 	}
@@ -85,26 +81,6 @@ func (s *UserService) Get(ctx context.Context,
 		UpdatedAt:     user.UpdatedAt,
 		LastLoginTime: user.LastLoginTime,
 	}, nil
-}
-
-func (s *UserService) getAvatarURL(ctx context.Context,
-	key *string) (string, error) {
-
-	if key == nil {
-		return "", nil
-	}
-
-	res, err := s.s3PresignClient.PresignGetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String("torb"),
-		Key:    key,
-	}, func(po *s3.PresignOptions) {
-		po.Expires = 15 * time.Minute
-	})
-	if err != nil {
-		return "", fmt.Errorf("s3 PresignGetObject: %w", err)
-	}
-
-	return res.URL, nil
 }
 
 func (s *UserService) ProjectAndTaskCount(ctx context.Context,
@@ -146,9 +122,6 @@ func (s *UserService) Update(ctx context.Context,
 	if update.DisplayName != nil {
 		user.DisplayName = update.DisplayName
 	}
-	if update.AvatarKey != nil {
-		user.AvatarKey = update.AvatarKey
-	}
 	if update.Skills != nil {
 		user.Skills = *update.Skills
 	}
@@ -158,7 +131,6 @@ func (s *UserService) Update(ctx context.Context,
 
 	if update.Username != nil ||
 		update.DisplayName != nil ||
-		update.AvatarKey != nil ||
 		update.Skills != nil ||
 		update.Timezone != nil {
 		err = s.userRepo.Update(ctx, id, user)
@@ -178,12 +150,10 @@ func (s *UserService) UploadAvatar(ctx context.Context,
 ) error {
 
 	avatarFileKey := fmt.Sprintf("users/%s/avatars/%s", userID, filename)
-	_, err := s.s3Client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:      aws.String("torb"),
-		Key:         aws.String(avatarFileKey),
-		Body:        avatar,
-		ContentType: aws.String(fileContentType),
-	})
+	err := s.documentStorge.StoreObject(ctx,
+		fileContentType,
+		avatarFileKey,
+		avatar)
 	if err != nil {
 		return err
 	}
@@ -194,11 +164,15 @@ func (s *UserService) UploadAvatar(ctx context.Context,
 		return err
 	}
 
-	err = s.Update(ctx, userID, UpdateUserBody{
-		AvatarKey: &avatarFileKey,
-	})
+	user, err := s.userRepo.Get(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("user repository Get: %w", err)
+	}
+
+	user.AvatarKey = &avatarFileKey
+	err = s.userRepo.Update(ctx, id, user)
+	if err != nil {
+		return fmt.Errorf("user repository Update: %w", err)
 	}
 
 	return nil

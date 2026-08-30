@@ -33,7 +33,6 @@ type UserProfileSummary struct {
 type UpdateUserRequest struct {
 	Username    *string `json:"username"`
 	DisplayName *string `json:"display_name"`
-	AvatarKey   *string `json:"avatar_url"`
 	Skills      *string `json:"skills"`
 	Timezone    *string `json:"timezone"`
 }

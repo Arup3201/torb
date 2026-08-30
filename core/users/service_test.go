@@ -6,10 +6,13 @@ import (
 	"testing"
 
 	"github.com/Arup3201/torb/core"
+	"github.com/Arup3201/torb/core/documents"
 	"github.com/Arup3201/torb/models"
 	"github.com/Arup3201/torb/testdata"
 	"github.com/Arup3201/torb/testhelpers"
 	"github.com/Arup3201/torb/testhelpers/fixtures"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/suite"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -49,7 +52,12 @@ func (suite *userServiceTestSuite) SetupSuite() {
 	}
 
 	repo := NewUserRepository(suite.db)
-	suite.service = NewUserService(repo, nil, nil)
+	docRepo := documents.NewDocumentRepository(suite.db)
+	cfg, err := config.LoadDefaultConfig(suite.ctx)
+	suite.NoError(err)
+	s3Client := s3.NewFromConfig(cfg)
+	docStorage := documents.NewDocumentStorage(s3Client)
+	suite.service = NewUserService(repo, docRepo, docStorage)
 
 	suite.fixtures = fixtures.New(suite.ctx, suite.db)
 }
@@ -155,18 +163,5 @@ func (suite *userServiceTestSuite) TestUpdateUser() {
 		suite.Require().Equal("Arup Jana", *user.DisplayName)
 		suite.Require().Equal("C, Python", user.Skills)
 		suite.Require().Equal("UTC+05:30", user.Timezone)
-	})
-	t.Run("should update avatar url", func(t *testing.T) {
-		update := UpdateUserBody{
-			AvatarKey: &[]string{"/users/02d4cef0-c789-4899-bbe0-bcc79743fe41/avatars/avatar.jpg"}[0],
-		}
-
-		err := suite.service.Update(suite.ctx, userID, update)
-
-		suite.Require().NoError(err)
-
-		user, err := gorm.G[models.User](suite.db).Where("id = ?", userID).First(suite.ctx)
-		suite.Require().NoError(err)
-		suite.Require().Equal("/users/02d4cef0-c789-4899-bbe0-bcc79743fe41/avatars/avatar.jpg", *user.AvatarKey)
 	})
 }
