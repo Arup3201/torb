@@ -48,10 +48,7 @@ func (api *GoogleApi) Redirect(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("google service GetAuthCodeURL: %w", err)
 	}
 
-	json.NewEncoder(w).Encode(HTTPSuccessResponse[string]{
-		Status: RESPONSE_SUCCESS_STATUS,
-		Data:   &url,
-	})
+	http.Redirect(w, r, url, http.StatusSeeOther)
 
 	return nil
 }
@@ -183,10 +180,7 @@ func (api *GoogleApi) Redirect2(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("google service GetConnectURL: %w", err)
 	}
 
-	json.NewEncoder(w).Encode(HTTPSuccessResponse[string]{
-		Status: RESPONSE_SUCCESS_STATUS,
-		Data:   &url,
-	})
+	http.Redirect(w, r, url, http.StatusSeeOther)
 
 	return nil
 }
