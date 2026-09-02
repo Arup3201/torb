@@ -214,6 +214,43 @@ func (suite *projectServiceTestSuite) TestProjectGet() {
 	})
 }
 
+func (suite *projectServiceTestSuite) TestProjectUpdate() {
+	t := suite.T()
+
+	t.Run("should update project details for the owner", func(t *testing.T) {
+
+		projectID := suite.fixtures.InsertProject(fixtures.RandomProjectRow(USER_ONE))
+
+		newName := "Updated Project"
+		newDescription := "Updated description"
+		newSkills := "Go, PostgreSQL"
+
+		err := suite.service.Update(suite.ctx, projectID, USER_ONE,
+			&newName, &newDescription, &newSkills)
+
+		suite.Require().NoError(err)
+
+		updated, err := gorm.G[models.Project](suite.db).
+			Where("id = ?", projectID).First(suite.ctx)
+		suite.Require().NoError(err)
+		suite.Cleanup()
+		suite.Require().Equal(newName, updated.Name)
+		suite.Require().Equal(newDescription, *updated.Description)
+		suite.Require().Equal(newSkills, *updated.Skills)
+	})
+
+	t.Run("should fail to update when user is not the owner", func(t *testing.T) {
+		projectID := suite.fixtures.InsertProject(fixtures.RandomProjectRow(USER_ONE))
+
+		newName := "Updated Project"
+		err := suite.service.Update(suite.ctx, projectID, USER_TWO, &newName, nil, nil)
+
+		suite.Cleanup()
+
+		suite.Require().Error(err)
+	})
+}
+
 func (suite *projectServiceTestSuite) TestProjectMyProjects() {
 	t := suite.T()
 

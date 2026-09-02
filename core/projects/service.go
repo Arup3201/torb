@@ -81,6 +81,27 @@ func (s *ProjectService) Create(ctx context.Context,
 	return projectID, nil
 }
 
+func (s *ProjectService) Update(ctx context.Context,
+	projectID, userID string,
+	name, description, skills *string) error {
+
+	err := core.NeedsToBeAnOwner(ctx, s.memberRepo, projectID, userID)
+	if err != nil {
+		return fmt.Errorf("needs to be an owner: %w", err)
+	}
+
+	if name == nil && description == nil && skills == nil {
+		return core.ErrInvalidValue
+	}
+
+	err = s.projectRepo.Update(ctx, projectID, name, description, skills)
+	if err != nil {
+		return fmt.Errorf("project repository update: %w", err)
+	}
+
+	return nil
+}
+
 func (s *ProjectService) Get(ctx context.Context,
 	projectID string) (*ProjectSummary, error) {
 

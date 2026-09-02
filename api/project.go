@@ -24,6 +24,12 @@ type CreateProjectRequest struct {
 	Skills      *string `json:"skills"`
 }
 
+type UpdateProjectRequest struct {
+	Name        *string `json:"name"`
+	Description *string `json:"description"`
+	Skills      *string `json:"skills"`
+}
+
 type ProjectDetail struct {
 	projects.ProjectSummary
 	Role        string      `json:"role"`
@@ -119,6 +125,48 @@ func (api *ProjectApi) Create(w http.ResponseWriter, r *http.Request) error {
 		Status: RESPONSE_SUCCESS_STATUS,
 		Data:   &projectID,
 	})
+	return nil
+}
+
+func (api *ProjectApi) Update(w http.ResponseWriter, r *http.Request) error {
+
+	projectID := r.PathValue("id")
+	if projectID == "" {
+		return core.ErrInvalidValue
+	}
+
+	var payload UpdateProjectRequest
+
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&payload); err != nil {
+		return fmt.Errorf("payload decode: %w", core.ErrInvalidValue)
+	}
+	if err := validator.New().Struct(payload); err != nil {
+		return fmt.Errorf("payload validation: %w", core.ErrInvalidValue)
+	}
+
+	userID, err := GetUserID(r)
+	if err != nil {
+		return fmt.Errorf("get userID: %w", err)
+	}
+
+	err = api.projectService.Update(r.Context(),
+		projectID,
+		userID,
+		payload.Name,
+		payload.Description,
+		payload.Skills,
+	)
+	if err != nil {
+		return fmt.Errorf("project service update: %w", err)
+	}
+
+	json.NewEncoder(w).Encode(HTTPSuccessResponse[any]{
+		Status:  RESPONSE_SUCCESS_STATUS,
+		Message: "Project updated",
+	})
+
 	return nil
 }
 

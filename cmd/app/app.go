@@ -336,6 +336,11 @@ func NewApp(
 		},
 		{
 			method:  "PATCH",
+			pattern: "/projects/{id}",
+			handler: authenticator.IsAuthenticated(projectApi.Update),
+		},
+		{
+			method:  "PATCH",
 			pattern: "/projects/{id}/join-requests",
 			handler: authenticator.IsAuthenticated(projectApi.RespondToJoinRequest),
 		},

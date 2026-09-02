@@ -3,6 +3,7 @@ package projects
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Arup3201/torb/core"
@@ -69,6 +70,42 @@ func (r *ProjectRepository) Create(ctx context.Context,
 	}
 
 	return project.ID, nil
+}
+
+func (r *ProjectRepository) Update(ctx context.Context,
+	projectID string,
+	name, description, skills *string) error {
+
+	if name == nil && description == nil && skills == nil {
+		return core.ErrInvalidValue
+	}
+
+	var project models.Project
+	var err error
+	project, err = gorm.G[models.Project](r.db).Where("id = ?", projectID).First(ctx)
+	if err != nil {
+		return fmt.Errorf("gorm query project: %w", err)
+	}
+
+	if name != nil {
+		if strings.Trim(*name, " ") == "" {
+			return core.ErrInvalidValue
+		}
+		project.Name = *name
+	}
+	if description != nil {
+		project.Description = description
+	}
+	if skills != nil {
+		project.Skills = skills
+	}
+
+	err = r.db.WithContext(ctx).Save(&project).Error
+	if err != nil {
+		return fmt.Errorf("gorm db save: %w", err)
+	}
+
+	return nil
 }
 
 func (r *ProjectRepository) Get(ctx context.Context, id string) (ProjectSummaryRow, error) {
