@@ -348,17 +348,18 @@ func (suite *notificationServiceTestSuite) TestJoinResponded() {
 func (suite *notificationServiceTestSuite) TestCommentAdded() {
 	t := suite.T()
 
-	t.Run("should create comment_added notification", func(t *testing.T) {
+	t.Run("should create comment_added notification for non-commentor assignees", func(t *testing.T) {
 		p := suite.fixtures.InsertProject(fixtures.RandomProjectRow(USER_ONE))
 		suite.fixtures.InsertMember(fixtures.GetMemberRow(p, USER_TWO, core.ROLE_MEMBER))
 		taskID := suite.fixtures.InsertTask(fixtures.RandomTaskRow(p, core.TASK_STATUS_UNASSIGNED))
+		suite.fixtures.InsertAssignee(fixtures.GetAssigneeRow(p, taskID, USER_ONE))
 		suite.fixtures.InsertAssignee(fixtures.GetAssigneeRow(p, taskID, USER_TWO))
 
 		_, _, err := suite.service.CommentAdded(suite.ctx, p, taskID, USER_TWO)
 
 		n, _ :=
 			gorm.G[models.Notification](suite.db).
-				Where("user_id = ?", USER_TWO).
+				Where("user_id = ?", USER_ONE).
 				First(suite.ctx)
 		suite.Cleanup()
 		suite.Require().NoError(err)

@@ -75,7 +75,7 @@ func (suite *userServiceTestSuite) TestGet() {
 		username := "alice-service"
 		email := "alice@svc.test"
 		dn := "Alice"
-		au := "/users/02d4cef0-c789-4899-bbe0-bcc79743fe41/avatars/avatar.jpg"
+		au := "users/02d4cef0-c789-4899-bbe0-bcc79743fe41/avatars/avatar.jpg"
 		id := suite.fixtures.InsertUser(models.User{
 			Username:    username,
 			Email:       email,
@@ -94,7 +94,7 @@ func (suite *userServiceTestSuite) TestGet() {
 		suite.Require().NotNil(u.DisplayName)
 		suite.Require().Equal(dn, *u.DisplayName)
 		suite.Require().NotNil(u.AvatarURL)
-		suite.Require().Equal(au, *u.AvatarURL)
+		suite.Require().Contains(*u.AvatarURL, "https://torb.s3.ap-south-1.amazonaws.com/"+au)
 	})
 
 	t.Run("should return not found for invalid id", func(t *testing.T) {
