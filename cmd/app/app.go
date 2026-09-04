@@ -70,6 +70,7 @@ func NewApp(
 	notificationRepo := notifications.NewNotificationRepository(db)
 	txManager := core.NewTxManager(db)
 	tokenStore := auth.NewTokenStore(redis)
+	cache := core.NewCacheManager(redis)
 	stringStore := openid.NewStringStore(redis)
 	docStorage := documents.NewDocumentStorage(s3Client)
 
@@ -147,6 +148,8 @@ func NewApp(
 		memberService,
 		joinService,
 		notificationService,
+		cache,
+		30*time.Minute,
 	)
 	taskApi := api.NewTaskApi(
 		taskService,
