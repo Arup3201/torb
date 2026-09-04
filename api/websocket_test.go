@@ -91,6 +91,7 @@ func (suite *realtimeTestSuite) SetupSuite() {
 
 	redis := redis.NewClient(opt)
 	store := auth.NewTokenStore(redis)
+	cache := core.NewCacheManager(redis)
 	block, _ := pem.Decode([]byte(`-----BEGIN PRIVATE KEY-----
 MIICdQIBADANBgkqhkiG9w0BAQEFAASCAl8wggJbAgEAAoGBANCFXFZd4xUB7KpZ
 UYAre4pgwwSbiukMfGZ9f1tnFdTghzFxlVWXkGHwe3h8qsq9fdSVv/ES6REYBLDg
@@ -154,7 +155,9 @@ VRE5pSFPQliu
 		userService,
 		memberService,
 		joinService,
-		notificationService)
+		notificationService,
+		cache,
+		10*time.Second)
 	suite.muxHandler = http.NewServeMux()
 	suite.muxHandler.Handle("GET /", http.HandlerFunc(wsHandler.WebSocketConnector))
 	authenticator := middlewares.NewAuthenticator(suite.tokenService)

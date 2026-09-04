@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/Arup3201/torb/core"
 	"github.com/Arup3201/torb/core/members"
@@ -77,6 +78,8 @@ type ProjectApi struct {
 	memberService       *members.MemberService
 	joinRequestService  *requests.JoinRequestService
 	notificationService *notifications.NotificationService
+	cacheManager        *core.CacheManager
+	cacheDuration       time.Duration
 }
 
 func NewProjectApi(
@@ -85,6 +88,8 @@ func NewProjectApi(
 	memberService *members.MemberService,
 	joinRequestService *requests.JoinRequestService,
 	notificationService *notifications.NotificationService,
+	cacheManager *core.CacheManager,
+	cacheDuration time.Duration,
 ) *ProjectApi {
 	return &ProjectApi{
 		notifier:            realtime.GlobalWebSocketNotifier(),
@@ -93,6 +98,8 @@ func NewProjectApi(
 		memberService:       memberService,
 		joinRequestService:  joinRequestService,
 		notificationService: notificationService,
+		cacheManager:        cacheManager,
+		cacheDuration:       cacheDuration,
 	}
 }
 
@@ -118,6 +125,17 @@ func (api *ProjectApi) Create(w http.ResponseWriter, r *http.Request) error {
 		payload.Name, payload.Description, payload.Skills, userID)
 	if err != nil {
 		return fmt.Errorf("store create project: %w", err)
+	}
+
+	// TODO
+	// Implement paginated data cache invalidation
+	// Store cache keys in user:{user_id}:created-projects:keys
+	// Delete those cache keys here
+	urlKey := fmt.Sprintf("user:%s:created-projects:page:%d:limit:%d", userID, 1, 10)
+	cacheKey := api.cacheManager.CacheKeyFromURLKey(urlKey)
+	err = api.cacheManager.Delete(r.Context(), cacheKey)
+	if err != nil {
+		fmt.Printf("[ERROR] Cache Manager: %s\n", err)
 	}
 
 	w.WriteHeader(http.StatusCreated)
@@ -162,6 +180,21 @@ func (api *ProjectApi) Update(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("project service update: %w", err)
 	}
 
+	urlKeys := []string{
+		fmt.Sprintf("project:%s", projectID),
+		fmt.Sprintf("project:public:%s", projectID),
+		fmt.Sprintf("user:%s:projects:page:%d:limit:%d", userID, 1, 10),
+		fmt.Sprintf("user:%s:created-projects:page:%d:limit:%d", userID, 1, 10),
+	}
+	cacheKeys := []string{}
+	for _, key := range urlKeys {
+		cacheKeys = append(cacheKeys, api.cacheManager.CacheKeyFromURLKey(key))
+	}
+	err = api.cacheManager.Delete(r.Context(), cacheKeys...)
+	if err != nil {
+		fmt.Printf("[ERROR] Cache Manager: %s\n", err)
+	}
+
 	json.NewEncoder(w).Encode(HTTPSuccessResponse[any]{
 		Status:  RESPONSE_SUCCESS_STATUS,
 		Message: "Project updated",
@@ -177,16 +210,6 @@ func (api *ProjectApi) Get(w http.ResponseWriter, r *http.Request) error {
 		return core.ErrInvalidValue
 	}
 
-	projectSummary, err := api.projectService.Get(r.Context(), projectID)
-	if err != nil {
-		return fmt.Errorf("database get project details: %w", err)
-	}
-
-	owner, err := api.userService.Get(r.Context(), projectSummary.OwnerID)
-	if err != nil {
-		return fmt.Errorf("user service get: %w", err)
-	}
-
 	userID, err := GetUserID(r)
 	if err != nil {
 		return fmt.Errorf("get context user: %w", err)
@@ -197,27 +220,59 @@ func (api *ProjectApi) Get(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("member service get role: %w", err)
 	}
 
+	var urlKey string
+	if role == core.ROLE_MEMBER || role == core.ROLE_OWNER {
+		var cacheResult HTTPSuccessResponse[ProjectDetail]
+		urlKey = fmt.Sprintf("project:%s", projectID)
+		hit := CheckCacheHit(r.Context(), api.cacheManager, w, urlKey, &cacheResult)
+		if hit {
+			return nil
+		}
+	} else {
+		var cacheResult HTTPSuccessResponse[PublicProjectDetail]
+		urlKey = fmt.Sprintf("project:public:%s", projectID)
+		hit := CheckCacheHit(r.Context(), api.cacheManager, w, urlKey, &cacheResult)
+		if hit {
+			return nil
+		}
+	}
+
+	projectSummary, err := api.projectService.Get(r.Context(), projectID)
+	if err != nil {
+		return fmt.Errorf("database get project details: %w", err)
+	}
+
+	owner, err := api.userService.Get(r.Context(), projectSummary.OwnerID)
+	if err != nil {
+		return fmt.Errorf("user service get: %w", err)
+	}
+
 	if role == core.ROLE_MEMBER || role == core.ROLE_OWNER {
 		memberCount, err := api.memberService.Count(r.Context(), projectID, userID)
 		if err != nil {
 			return fmt.Errorf("member service count: %w", err)
 		}
 
-		json.NewEncoder(w).Encode(HTTPSuccessResponse[ProjectDetail]{
-			Status: RESPONSE_SUCCESS_STATUS,
-			Data: &ProjectDetail{
-				ProjectSummary: *projectSummary,
-				MemberCount:    memberCount,
-				Role:           role,
-				Owner: core.Avatar{
-					UserID:      owner.ID,
-					Username:    owner.Username,
-					Email:       owner.Email,
-					DisplayName: owner.DisplayName,
-					AvatarURL:   owner.AvatarURL,
+		CacheResponse(r.Context(),
+			api.cacheManager,
+			w,
+			urlKey,
+			HTTPSuccessResponse[ProjectDetail]{
+				Status: RESPONSE_SUCCESS_STATUS,
+				Data: &ProjectDetail{
+					ProjectSummary: *projectSummary,
+					MemberCount:    memberCount,
+					Role:           role,
+					Owner: core.Avatar{
+						UserID:      owner.ID,
+						Username:    owner.Username,
+						Email:       owner.Email,
+						DisplayName: owner.DisplayName,
+						AvatarURL:   owner.AvatarURL,
+					},
 				},
 			},
-		})
+			api.cacheDuration)
 	} else {
 		joinStatus, err := api.joinRequestService.GetStatus(r.Context(),
 			projectID, userID)
@@ -225,20 +280,25 @@ func (api *ProjectApi) Get(w http.ResponseWriter, r *http.Request) error {
 			return fmt.Errorf("join request service get status: %w", err)
 		}
 
-		json.NewEncoder(w).Encode(HTTPSuccessResponse[PublicProjectDetail]{
-			Status: RESPONSE_SUCCESS_STATUS,
-			Data: &PublicProjectDetail{
-				ProjectSummary: *projectSummary,
-				Owner: core.Avatar{
-					UserID:      owner.ID,
-					Username:    owner.Username,
-					Email:       owner.Email,
-					DisplayName: owner.DisplayName,
-					AvatarURL:   owner.AvatarURL,
+		CacheResponse(r.Context(),
+			api.cacheManager,
+			w,
+			urlKey,
+			HTTPSuccessResponse[PublicProjectDetail]{
+				Status: RESPONSE_SUCCESS_STATUS,
+				Data: &PublicProjectDetail{
+					ProjectSummary: *projectSummary,
+					Owner: core.Avatar{
+						UserID:      owner.ID,
+						Username:    owner.Username,
+						Email:       owner.Email,
+						DisplayName: owner.DisplayName,
+						AvatarURL:   owner.AvatarURL,
+					},
+					JoinStatus: joinStatus,
 				},
-				JoinStatus: joinStatus,
 			},
-		})
+			api.cacheDuration)
 	}
 
 	return nil
@@ -273,19 +333,31 @@ func (api *ProjectApi) ListMyProjects(w http.ResponseWriter, r *http.Request) er
 		return fmt.Errorf("get userID: %w", err)
 	}
 
+	var cacheResult HTTPSuccessResponse[ListedProjectSummaries]
+	urlKey := fmt.Sprintf("user:%s:projects:page:%d:limit:%d", userID, page, limit)
+	hit := CheckCacheHit(r.Context(), api.cacheManager, w, urlKey, &cacheResult)
+	if hit {
+		return nil
+	}
+
 	summaries, err := api.projectService.MyProjects(r.Context(), userID)
 	if err != nil {
 		return fmt.Errorf("project service my projects: %w", err)
 	}
 
-	json.NewEncoder(w).Encode(HTTPSuccessResponse[ListedProjectSummaries]{
-		Status: RESPONSE_SUCCESS_STATUS,
-		Data: &ListedProjectSummaries{
-			Projects: summaries,
-			Page:     page,
-			Limit:    limit,
+	CacheResponse(r.Context(),
+		api.cacheManager,
+		w,
+		urlKey,
+		HTTPSuccessResponse[ListedProjectSummaries]{
+			Status: RESPONSE_SUCCESS_STATUS,
+			Data: &ListedProjectSummaries{
+				Projects: summaries,
+				Page:     page,
+				Limit:    limit,
+			},
 		},
-	})
+		api.cacheDuration)
 
 	return nil
 }
@@ -319,27 +391,70 @@ func (api *ProjectApi) ListPublic(w http.ResponseWriter, r *http.Request) error 
 		return fmt.Errorf("get userID: %w", err)
 	}
 
+	var cacheResult HTTPSuccessResponse[ListedProjectPreviews]
+	urlKey := fmt.Sprintf("user:%s:projects:public:page:%d:limit:%d", userID, page, limit)
+	hit := CheckCacheHit(r.Context(), api.cacheManager, w, urlKey, &cacheResult)
+	if hit {
+		return nil
+	}
+
 	projects, err := api.projectService.ListPublic(r.Context(), userID)
 	if err != nil {
 		return fmt.Errorf("project service list public: %w", err)
 	}
 
-	json.NewEncoder(w).Encode(HTTPSuccessResponse[ListedProjectPreviews]{
-		Status: RESPONSE_SUCCESS_STATUS,
-		Data: &ListedProjectPreviews{
-			Projects: projects,
-			Page:     page,
-			Limit:    limit,
+	CacheResponse(r.Context(),
+		api.cacheManager,
+		w,
+		urlKey,
+		HTTPSuccessResponse[ListedProjectPreviews]{
+			Status: RESPONSE_SUCCESS_STATUS,
+			Data: &ListedProjectPreviews{
+				Projects: projects,
+				Page:     page,
+				Limit:    limit,
+			},
 		},
-	})
+		api.cacheDuration)
+
 	return nil
 }
 
 func (api *ProjectApi) ListRecentlyCreated(w http.ResponseWriter, r *http.Request) error {
 
+	queryPage := r.URL.Query().Get("page")
+	queryLimit := r.URL.Query().Get("limit")
+
+	var page, limit int
+	if queryPage != "" {
+		var err error
+		page, err = strconv.Atoi(queryPage)
+		if err != nil {
+			return core.ErrInvalidValue
+		}
+	} else {
+		page = 1
+	}
+	if queryLimit != "" {
+		var err error
+		limit, err = strconv.Atoi(queryLimit)
+		if err != nil {
+			return core.ErrInvalidValue
+		}
+	} else {
+		limit = 10
+	}
+
 	userID, err := GetUserID(r)
 	if err != nil {
 		return fmt.Errorf("get userID: %w", err)
+	}
+
+	var cacheResult HTTPSuccessResponse[ListedProjectSummaries]
+	urlKey := fmt.Sprintf("user:%s:created-projects:page:%d:limit:%d", userID, page, limit)
+	hit := CheckCacheHit(r.Context(), api.cacheManager, w, urlKey, &cacheResult)
+	if hit {
+		return nil
 	}
 
 	projects, err := api.projectService.RecentlyCreated(r.Context(), userID)
@@ -347,20 +462,56 @@ func (api *ProjectApi) ListRecentlyCreated(w http.ResponseWriter, r *http.Reques
 		return fmt.Errorf("project service recently created: %w", err)
 	}
 
-	json.NewEncoder(w).Encode(HTTPSuccessResponse[ListedProjectSummaries]{
-		Status: RESPONSE_SUCCESS_STATUS,
-		Data: &ListedProjectSummaries{
-			Projects: projects,
+	CacheResponse(r.Context(),
+		api.cacheManager,
+		w,
+		urlKey,
+		HTTPSuccessResponse[ListedProjectSummaries]{
+			Status: RESPONSE_SUCCESS_STATUS,
+			Data: &ListedProjectSummaries{
+				Projects: projects,
+			},
 		},
-	})
+		api.cacheDuration)
 
 	return nil
 }
 
 func (api *ProjectApi) ListRecentlyJoined(w http.ResponseWriter, r *http.Request) error {
+
+	queryPage := r.URL.Query().Get("page")
+	queryLimit := r.URL.Query().Get("limit")
+
+	var page, limit int
+	if queryPage != "" {
+		var err error
+		page, err = strconv.Atoi(queryPage)
+		if err != nil {
+			return core.ErrInvalidValue
+		}
+	} else {
+		page = 1
+	}
+	if queryLimit != "" {
+		var err error
+		limit, err = strconv.Atoi(queryLimit)
+		if err != nil {
+			return core.ErrInvalidValue
+		}
+	} else {
+		limit = 10
+	}
+
 	userID, err := GetUserID(r)
 	if err != nil {
 		return fmt.Errorf("get userID: %w", err)
+	}
+
+	var cacheResult HTTPSuccessResponse[ListedProjectPreviews]
+	urlKey := fmt.Sprintf("user:%s:joined-projects:page:%d:limit:%d", userID, page, limit)
+	hit := CheckCacheHit(r.Context(), api.cacheManager, w, urlKey, &cacheResult)
+	if hit {
+		return nil
 	}
 
 	projects, err := api.projectService.RecentlyJoined(r.Context(), userID)
@@ -368,17 +519,45 @@ func (api *ProjectApi) ListRecentlyJoined(w http.ResponseWriter, r *http.Request
 		return fmt.Errorf("project service recently joined: %w", err)
 	}
 
-	json.NewEncoder(w).Encode(HTTPSuccessResponse[ListedProjectSummaries]{
-		Status: RESPONSE_SUCCESS_STATUS,
-		Data: &ListedProjectSummaries{
-			Projects: projects,
+	CacheResponse(r.Context(),
+		api.cacheManager,
+		w,
+		urlKey,
+		HTTPSuccessResponse[ListedProjectSummaries]{
+			Status: RESPONSE_SUCCESS_STATUS,
+			Data: &ListedProjectSummaries{
+				Projects: projects,
+			},
 		},
-	})
+		api.cacheDuration)
 
 	return nil
 }
 
 func (api *ProjectApi) ListMembers(w http.ResponseWriter, r *http.Request) error {
+
+	queryPage := r.URL.Query().Get("page")
+	queryLimit := r.URL.Query().Get("limit")
+
+	var page, limit int
+	if queryPage != "" {
+		var err error
+		page, err = strconv.Atoi(queryPage)
+		if err != nil {
+			return core.ErrInvalidValue
+		}
+	} else {
+		page = 1
+	}
+	if queryLimit != "" {
+		var err error
+		limit, err = strconv.Atoi(queryLimit)
+		if err != nil {
+			return core.ErrInvalidValue
+		}
+	} else {
+		limit = 10
+	}
 
 	projectID := r.PathValue("id")
 	if projectID == "" {
@@ -390,6 +569,13 @@ func (api *ProjectApi) ListMembers(w http.ResponseWriter, r *http.Request) error
 		return fmt.Errorf("get userID: %w", err)
 	}
 
+	var cacheResult HTTPSuccessResponse[ListedProjectPreviews]
+	urlKey := fmt.Sprintf("project:%s:members:page:%d:limit:%d", projectID, page, limit)
+	hit := CheckCacheHit(r.Context(), api.cacheManager, w, urlKey, &cacheResult)
+	if hit {
+		return nil
+	}
+
 	members, err := api.memberService.AllMembers(r.Context(),
 		projectID,
 		userID)
@@ -397,12 +583,17 @@ func (api *ProjectApi) ListMembers(w http.ResponseWriter, r *http.Request) error
 		return fmt.Errorf("member service all members: %w", err)
 	}
 
-	json.NewEncoder(w).Encode(HTTPSuccessResponse[ListedMembers]{
-		Status: RESPONSE_SUCCESS_STATUS,
-		Data: &ListedMembers{
-			Members: members,
+	CacheResponse(r.Context(),
+		api.cacheManager,
+		w,
+		urlKey,
+		HTTPSuccessResponse[ListedMembers]{
+			Status: RESPONSE_SUCCESS_STATUS,
+			Data: &ListedMembers{
+				Members: members,
+			},
 		},
-	})
+		api.cacheDuration)
 
 	return nil
 }
@@ -422,6 +613,13 @@ func (api *ProjectApi) AddJoinRequest(w http.ResponseWriter, r *http.Request) er
 	err = api.joinRequestService.Create(r.Context(), projectID, userID)
 	if err != nil {
 		return fmt.Errorf("join request service create: %w", err)
+	}
+
+	urlKey := fmt.Sprintf("project:%s:join-requests:page:%d:limit:%d", projectID, 1, 10)
+	cacheKey := api.cacheManager.CacheKeyFromURLKey(urlKey)
+	err = api.cacheManager.Delete(r.Context(), cacheKey)
+	if err != nil {
+		fmt.Printf("[ERROR] Cache Manager: %s\n", err)
 	}
 
 	jsonData, receiver, err := api.notificationService.JoinRequested(
@@ -444,6 +642,29 @@ func (api *ProjectApi) AddJoinRequest(w http.ResponseWriter, r *http.Request) er
 
 func (api *ProjectApi) ListJoinRequests(w http.ResponseWriter, r *http.Request) error {
 
+	queryPage := r.URL.Query().Get("page")
+	queryLimit := r.URL.Query().Get("limit")
+
+	var page, limit int
+	if queryPage != "" {
+		var err error
+		page, err = strconv.Atoi(queryPage)
+		if err != nil {
+			return core.ErrInvalidValue
+		}
+	} else {
+		page = 1
+	}
+	if queryLimit != "" {
+		var err error
+		limit, err = strconv.Atoi(queryLimit)
+		if err != nil {
+			return core.ErrInvalidValue
+		}
+	} else {
+		limit = 10
+	}
+
 	projectID := r.PathValue("id")
 	if projectID == "" {
 		return fmt.Errorf("project ID is missing: %w", core.ErrInvalidValue)
@@ -454,6 +675,13 @@ func (api *ProjectApi) ListJoinRequests(w http.ResponseWriter, r *http.Request) 
 		return fmt.Errorf("get userID: %w", err)
 	}
 
+	var cacheResult HTTPSuccessResponse[ListedProjectPreviews]
+	urlKey := fmt.Sprintf("project:%s:join-requests:page:%d:limit:%d", projectID, page, limit)
+	hit := CheckCacheHit(r.Context(), api.cacheManager, w, urlKey, &cacheResult)
+	if hit {
+		return nil
+	}
+
 	joinRequests, err := api.joinRequestService.List(r.Context(),
 		projectID,
 		userID)
@@ -461,12 +689,17 @@ func (api *ProjectApi) ListJoinRequests(w http.ResponseWriter, r *http.Request) 
 		return fmt.Errorf("join request service list: %w", err)
 	}
 
-	json.NewEncoder(w).Encode(HTTPSuccessResponse[ListedJoinRequests]{
-		Status: RESPONSE_SUCCESS_STATUS,
-		Data: &ListedJoinRequests{
-			JoinRequests: joinRequests,
+	CacheResponse(r.Context(),
+		api.cacheManager,
+		w,
+		urlKey,
+		HTTPSuccessResponse[ListedJoinRequests]{
+			Status: RESPONSE_SUCCESS_STATUS,
+			Data: &ListedJoinRequests{
+				JoinRequests: joinRequests,
+			},
 		},
-	})
+		api.cacheDuration)
 
 	return nil
 }
@@ -510,6 +743,19 @@ func (api *ProjectApi) RespondToJoinRequest(w http.ResponseWriter, r *http.Reque
 	)
 	if err != nil {
 		return fmt.Errorf("join request service respond: %w", err)
+	}
+
+	urlKeys := []string{
+		fmt.Sprintf("project:%s:members:page:%d:limit:%d", projectID, 1, 10),
+		fmt.Sprintf("project:%s:join-requests:page:%d:limit:%d", projectID, 1, 10),
+	}
+	cacheKeys := []string{}
+	for _, key := range urlKeys {
+		cacheKeys = append(cacheKeys, api.cacheManager.CacheKeyFromURLKey(key))
+	}
+	err = api.cacheManager.Delete(r.Context(), cacheKeys...)
+	if err != nil {
+		fmt.Printf("[ERROR] Cache Manager: %s\n", err)
 	}
 
 	data, receiver, err := api.notificationService.JoinResponded(
