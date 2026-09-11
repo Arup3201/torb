@@ -49,7 +49,7 @@ func (c *WebSocketClient) WritePump(done chan struct{}) {
 			c.connection.Close(websocket.StatusAbnormalClosure, "Authentication timeout")
 			return
 		case data = <-c.send:
-			if isAuthenticated {
+			if !isAuthenticated {
 				continue
 			}
 
